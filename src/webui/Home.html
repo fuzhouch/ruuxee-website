@@ -1,0 +1,373 @@
+<!-- Index Edit 1.0 By Wenyu -->
+<!DOCTYPE html>
+<html lang="zh" ng-app>
+<head>
+    <meta charset="utf-8">
+    <meta name="description" content="">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>首页 - 如戏</title>
+    <!-- 全局 Css -->
+    <link rel="stylesheet" type="text/css" href="css/style.css">
+    <!-- Top Search Box Css (Ajax) --> 
+    <link href="css/top.css" rel="stylesheet" />
+    <!-- Bootstrap Css-->
+    <link rel="stylesheet" type="text/css" href="css/bootstrap.css">
+    <!-- jQuery -->
+    <script type="text/javascript" src="js/jquery-1.8.3.min.js"></script>
+      
+   
+    <script src="js/angular-1.0.1.min.js"></script>
+    <!-- Loading -->
+
+    <script type="text/javascript">
+          var totalheight = 0;     //Total Hight Var
+            function LoadingDate()
+        { 
+          totalheight = parseFloat($(window).height()) + parseFloat($(window).scrollTop());     //浏览器的高度加上滚动条的高度 
+
+      if ($(document).height() <= totalheight)     //当文档的高度小于或者等于总的高度的时候，开始动态加载数据
+      { 
+        //Add 
+          $("#rx-timeline").append("<span class='btn-more btn-white'>更多</span>");
+      } 
+} 
+
+$(window).scroll( function() { 
+    console.log("滚动条到顶部的垂直高度: "+$(document).scrollTop()); 
+    console.log("页面的文档高度 ："+$(document).height());
+    console.log('浏览器的高度：'+$(window).height());
+    LoadingDate();
+}); 
+</script>
+
+
+    <body>
+
+ 
+
+
+    <!-- Top -->
+    <nav id="rx-nav" class="navbar navbar-default navbar-fixed-top">
+      <div id ="rx-top"class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">&nbsp;&nbsp;Ruuxee.com</a>
+    
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <form class="navbar-form navbar-left">
+            <div class="form-group">
+              <input type="text" name="country" id="autocomplete-dynamic" class="rx-top-search" class="form-control" placeholder="搜索话题、问题或人..." autocomplete="off" value="" ><botton id="rx-top-searchbtn"><i class="glyphicon glyphicon-search"></i></botton>
+            </div>
+            
+          </form>
+        
+           
+           <div id="rx-top-person" >
+           
+           <a href="#"><img src="images/user-icon.jpg"  class="rx-top-person-icon" /><span>周文宇</span></a> 
+           <div id="rx-top-person-nav">
+              <ul>
+                <li><a href="#"><i class="glyphicon glyphicon-user"></i>&nbsp;&nbsp;我的主页</a></li>
+                <li><a href="#"><i class="glyphicon glyphicon-list-alt"></i>&nbsp;&nbsp;私信</a></li>
+                <li><a href="#"><i class="glyphicon glyphicon-cog"></i>&nbsp;&nbsp;设置</a></li>
+                <li class="rx-top-nav-end"><a href="#"><i class="glyphicon glyphicon-upload"></i>&nbsp;&nbsp;退出</a></li>
+              </ul>
+           </div>
+          </div>
+          <div class="rx-top-nav">
+            <ul>
+              <li class="rx-top-nav current"><a href="#">首页</a></li>
+              <li><a href="#">发现</a></li>
+              <li><a href="#">领域</a></li>
+              <li><a href="#">项目库</a></li>
+            </ul>
+
+
+          </div>
+          
+        </div><!--/.navbar-collapse -->
+      </div>
+    </nav>
+    <!-- Top End -->
+    <div class="clear-m"></div>
+    <div id="rx-body" class="row">
+        <div class="container">
+          <div id="rx-timeline" class="col-md-9">
+                <div id="rx-tl-title">
+                    <i class="glyphicon glyphicon-th-list"></i> 最新动态
+                    <span class="rx-tl-set"><i class="glyphicon glyphicon-cog"></i> <a href="#">设置</a></span>
+                </div>
+                <div id="rx-tl-body">
+                    <div class="rx-tl-alert">11条新动态</div>
+                             <div class="clear-s"></div>
+                             <!-- Item Start -->
+                         <div class="item-container">
+                              <span class="item-left">
+                                 <img src="images/user-icon2.jpg"  class="item-usericon" />
+                                 <span class="item-vote-count">51</span>
+                              </span>
+                              <div class="item-right">
+                                <div class="item-status">vczh 关注该问题 <span class="item-status-time">53分钟前</span></div>
+                                <a href="#" class="question-link" >连锁汉堡店 Shake Shack 是一家怎样的公司？为什么只拥有美国境内 36 家店的情况下估值达到 10 亿美元</a> 
+                                <div class="clear-ss"></div>
+                    <a href="#" class="people-link"  >马起园</a><br/>
+                                    <div class="people-hover-container" >
+                                        <div class="people-hover-content">
+                                         <span class="people-hover-icon">  <img src="images/user-icon.jpg"  class="item-usericon-l" /></span>
+                    <span class="people-hover-name"><a href="#">马起园</a></span>
+						<span class="peopel-hover-des">热血宅男，猫奴，游戏原画师</span>
+<span class="people-hover-follow">朱博文、周文宇等18人也关注他。</span><button class="follow">关注</button>
+                                        </div>
+                                    </div>
+                                <div class="answer-block">里有着精彩的解读，感兴趣的同学不可不读。当初编辑这一部分内容时，还纳闷，心想怎么写瓷器就写了这么多啊，读毕感叹良多，因为没想到象征着第一次工业革命的蒸汽机，竟然首先用在瓷器制造商。搞软件的老…  
+                                <div class="item-foot">
+                                    <a href="#"><i class="glyphicon glyphicon-plus"></i>关注问题</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-comment"></i>24 条评论</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-heart"></i>感谢</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-share"></i>分享</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-floppy-disk"></i>收藏</a> •&nbsp;&nbsp;<a href="#">没有帮助</a>&nbsp;•&nbsp;&nbsp;<a href="#">举报</a> 
+                                </div>
+                               
+                         </div> 
+            </div>
+          
+            
+    </div>
+  <!-- Item End -->
+            <!-- Item Start -->
+                         <div class="item-container">
+                              <span class="item-left">
+                                 <img src="images/user-icon.jpg"  class="item-usericon" />
+                                 <span class="item-vote-count">32</span>
+                              </span>
+                              <div class="item-right">
+                                <div class="item-status">朱博文 关注该问题 <span class="item-status-time">1个小时前</span></div>
+                                <a href="#" class="question-link">如果不是为了移民，为什么要去澳洲留学呢？</a> 
+                                <div class="clear-ss"></div>
+                                <a href="#" class="people-link">王宁</a><br/>
+                                <div class="answer-block">
+                                国家投钱，物价上涨。为了保值，房价，股票投入大量资金，股票，房价开始回升。如果控制房价，嘿嘿，那这部分钱就会流向物品，物价的上涨只会加剧。
+                                <div class="item-foot">
+                                    <a href="#"><i class="glyphicon glyphicon-plus"></i>关注问题</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-comment"></i>8 条评论</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-heart"></i>感谢</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-share"></i>分享</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-floppy-disk"></i>收藏</a> •&nbsp;&nbsp;<a href="#">没有帮助</a>&nbsp;•&nbsp;&nbsp;<a href="#">举报</a> 
+                                </div>
+                               
+                         </div> 
+            </div>
+          
+            
+    </div>
+  <!-- Item End -->
+  
+            <!-- Item Start -->
+                         <div class="item-container">
+                              <span class="item-left">
+                                 <img src="images/user-icon3.jpg"  class="item-usericon" />
+                                 <span class="item-vote-count">83</span>
+                              </span>
+                              <div class="item-right">
+                                <div class="item-status">马起园 关注该问题 <span class="item-status-time">3小时前</span></div>
+                                <a href="#" class="question-link">为什么电影分级制在国内无法实行？</a> 
+                                <div class="clear-ss"></div>
+                                <a href="#" class="people-link">谢彬欢</a><br/>
+                                <div class="answer-block">以下是梁宏达老梁对“国内游戏为什么不分级”的探讨，其实把主语“游戏”换成“电影”这个回答还是完全成立～简单一句话，分级就是逼相关部门“放权”，领导的权力万不可丢。PS：话说有木有电影和游戏的双重粉丝啊？大家看完这个回答，心里很堵的有木有～
+                                <div class="item-foot">
+                                    <a href="#"><i class="glyphicon glyphicon-plus"></i>关注问题</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-comment"></i>92 条评论</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-heart"></i>感谢</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-share"></i>分享</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-floppy-disk"></i>收藏</a> •&nbsp;&nbsp;<a href="#">没有帮助</a>&nbsp;•&nbsp;&nbsp;<a href="#">举报</a> 
+                                </div>
+                               
+                         </div> 
+            </div>
+          
+            
+    </div>
+  <!-- Item End -->
+  
+            <!-- Item Start -->
+                         <div class="item-container">
+                              <span class="item-left">
+                                 <img src="images/user-icon4.jpg"  class="item-usericon" />
+                                 <span class="item-vote-count">152</span>
+                              </span>
+                              <div class="item-right">
+                                <div class="item-status">习近平 关注该问题 <span class="item-status-time">9小时前</span></div>
+                                <a href="#" class="question-link">养蜘蛛、毒蛇、蝎子之类的宠物是一种怎样的体验</a> 
+                                <div class="clear-ss"></div>
+                                <a href="#" class="people-link">马起园</a><br/>
+
+                                <div class="answer-block">家里养了四条蟒，心理上首先就很自豪了。驯化的过程会让你很有成就感，一开始特别凶见什么都咬，到后来乖乖的爱黏糊人。但是像所有宠物一样，你需要照顾它们的吃喝拉撒。蟒吃完整的老鼠，我需要去宠物店买消毒过的速冻老鼠，放在家里冰柜（一次一百只）。要喂食的时候再取出来拿热水给解冻才喂给它们。最为弱妹子，我一开始特别抵抗，因为湿漉漉的老鼠特别反胃。但是没有办法只能慢慢习惯。后来有一只小蟒都可以在我的手上吃老鼠了呢！
+                                <div class="item-foot">
+                                    <a href="#"><i class="glyphicon glyphicon-plus"></i>关注问题</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-comment"></i>24 条评论</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-heart"></i>感谢</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-share"></i>分享</a> 
+                                    <a href="#"><i class="glyphicon glyphicon-floppy-disk"></i>收藏</a> •&nbsp;&nbsp;<a href="#">没有帮助</a>&nbsp;•&nbsp;&nbsp;<a href="#">举报</a> 
+                                </div>
+                               
+                         </div> 
+            </div>
+          
+            
+    </div>
+  <!-- Item End -->
+
+  <a href="#">                         
+   <span class="btn-more btn-white">更多</span>
+  </a>
+   </div>  
+    
+   
+   </div>
+ 		  	<div  id="rx-sidebar" class="col-md-3">
+				<aside>
+                 
+                   
+                   
+                   <!-- Button trigger modal -->
+<button type="button" class="btn btn-primary btn-lg" data-toggle="modal" data-target="#myModal"  style="widows:50px;" >
+<span class="glyphicon glyphicon-plus"></span>
+  
+</button>
+
+<!-- Modal -->
+<div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+        <h4 class="modal-title" id="myModalLabel">提问</h4>
+      </div>
+      <div class="modal-body">
+       
+       <form role="form">
+  <div class="form-group">
+    
+    <input type="email" class="form-control" id="exampleInputEmail1" placeholder="写下你的问题" style="font-weight:normal;" >
+  </div>
+  <div class="form-group">
+    <label for="exampleInputPassword1" class="addquestion-box-font">问题说明（可选）：</label>
+    <div class="clear-ss"></div>
+    <textarea class="form-control" rows="3" ></textarea>
+  </div>
+  <div class="form-group">
+      <label for="exampleInputPassword1" class="addquestion-box-font">选择话题：</label>
+    <input type="email" class="form-control" id="exampleInputEmail1" placeholder="搜索话题" style="font-weight:normal;">
+  </div>
+  <div class="checkbox">
+    <label>
+      <input type="checkbox"> 匿名
+    </label>
+  </div> 
+</form>
+       
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link" data-dismiss="modal">取消</button>
+      <button type="button" id="myStateButton" data-complete-text="finished!" class="btn btn-primary" autocomplete="off"    data-dismiss="modal">发布</button>
+     
+      </div>
+    </div>
+  </div>
+</div>
+         
+                    <div class="clear-s"></div>
+                    <ul class="rx-side-nav-ul">
+                        <li class="rx-side-nav-li"><a href="#" ><i class="glyphicon glyphicon-floppy-disk"></i>&nbsp;我的草稿<span class="rx-side-nav-count">2</span></a></li>
+                        <li class="rx-side-nav-li"><a href="#"><i class="glyphicon glyphicon-floppy-save"></i>&nbsp;我的收藏</a></li>
+                        <li class="rx-side-nav-li"><a href="#"><i class="glyphicon glyphicon-eye-open"></i>&nbsp;我关注的问题</a></li>
+                        <li class="rx-side-nav-li"><a href="#"><i class="glyphicon glyphicon-earphone"></i>&nbsp;邀请我回答的问题</a></li>
+                    </ul>
+                   <div class="clear-s"></div>
+                    <ul class="rx-side-nav-ul">
+                        <li class="rx-side-nav-li"><a href="#" ><i class="glyphicon glyphicon-plus-sign"></i>&nbsp;所有问题<span class="rx-side-nav-count">2</span></a></li>
+                        <li class="rx-side-nav-li"><a href="#"><i class="glyphicon glyphicon-leaf"></i>&nbsp;话题广场</a></li>
+                        <li class="rx-side-nav-li"><a href="#"><i class="glyphicon glyphicon-tree-deciduous"></i>&nbsp;社区服务中心</a></li>
+                    </ul>
+                    <div class="clear-s"></div>
+                        <div class="rx-side-nav-foot">
+                            &nbsp;<a href="#">如戏指南</a> &nbsp;•
+                            &nbsp;<a href="#">建议反馈</a> &nbsp;•
+                            &nbsp;<a href="#">移动应用</a><br />
+                            &nbsp;<a href="#">加入如戏</a> &nbsp;• 
+                            &nbsp;<a href="#">如戏协议</a> &nbsp;•
+                            &nbsp;<a href="#">商务合作</a><br />
+                            &nbsp;© 2015 如戏 
+                        </ul>
+                    </div>
+                </aside>
+  			 </div>
+   </div>
+   </div>
+    
+ 
+    
+      
+            <input type="text" name="country" id="autocomplete-dynamic" style="width: 100%; border-width: 5px;"/>
+         
+   
+ 
+
+
+
+
+    
+
+   	<script type="text/javascript">
+	$(document).ready(function(){
+		$(".people-link").mouseenter(function(){
+			$(".people-hover-container").fadeIn(100);
+			$(".people-hover-container").mouseleave(function(){
+				$(".people-hover-container").fadeOut(100);
+		});
+	});
+})
+    </script>
+    <script>
+    function timedCount1()
+{
+  $.get("1.php",function(data,status){
+    $(".rx-tl-alert").html("<div class='xx'>您有"+ data +"条新动态</div>");
+  });
+  setTimeout("timedCount1()",1000);
+}
+
+
+$(document).ready(function(){
+  timedCount1();  
+});
+
+    </script>
+    <!-- Top Back -->
+    <script src="js/top.js"></script> 
+    <!-- Auto Complete Js-->
+    <script type="text/javascript" src="scripts/jquery.mockjax.js"></script>
+    <script type="text/javascript" src="src/jquery.autocomplete.js"></script>
+    <script type="text/javascript" src="scripts/countries.js"></script>
+    <script type="text/javascript" src="scripts/demo.js"></script>
+   <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+   <script type="text/javascript" src="http://cdn.bootcss.com/jquery/1.11.1/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="js/bootstrap.min.js"></script>
+    </body>
+
+    </html>
+
+
+
+
+
+
+ 
