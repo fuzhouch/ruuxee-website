@@ -201,6 +201,13 @@ CREATE TABLE ruuxee_topic_v1 (
 --    GET http://www.ruuxee.com/person/<person_readable_id>
 --    GET http://www.ruuxee.com/post/<post_visible_id>
 
+--    GET http://www.ruuxee.com/api/web/v1/person-brief/<person_visible_id>
+--        Usage: Get brief information of given person. It's used when
+--        getting user information from hovering.
+--        Requires login.
+--        If given person ID is invalid, returns 400.
+--        On success, return name and visible_id (will add more).
+
 --    GET http://www.ruuxee.com/api/web/v1/post/<post_visible_id>
 --    GET http://www.ruuxee.com/api/web/v1/post-brief/<post_visible_id>
 --    POST http://www.ruuxee.com/api/web/v1/follow/topic/<topic_visible_id>

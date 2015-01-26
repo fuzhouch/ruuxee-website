@@ -12,14 +12,14 @@ class TestApiWithoutAuth(unittest.TestCase):
     def setUp(self):
         self.app = ruuxee.Application('ruuxee.config.webui_dev')
         api_page = ruuxee.apis.v1.web.page
-        self.app.register_blueprint(api_page, url_prefix='/apis/v1/web')
+        self.app.register_blueprint(api_page, url_prefix='/apis/web/v1')
 
     def tearDown(self):
         pass
 
     def testGetPersonBrief(self):
         with self.app.test_client() as c:
-            path = '/apis/v1/web/person-brief'
+            path = '/apis/web/v1/person-brief'
             dataaccess = self.app.config["RUUXEE_DATA_ACCESS"]
             # Only for fake objects we can get list of persons.
             for each_person in dataaccess.persons():
