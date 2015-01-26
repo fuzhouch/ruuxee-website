@@ -5,3 +5,4 @@
 conflicts with Python's standard unittest modules."""
 
 from creation import *
+from api import *

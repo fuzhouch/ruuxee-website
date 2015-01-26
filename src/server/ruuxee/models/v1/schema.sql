@@ -197,33 +197,30 @@ CREATE TABLE ruuxee_topic_v1 (
 
 -- Part 4: APIs
 --    GET http://www.ruuxee.com/person
---    GET http://www.ruuxee.com/person/{person_visible_id}
---    GET http://www.ruuxee.com/person/{person_readable_id}
---    GET http://www.ruuxee.com/post/{post_visible_id}
---    GET http://www.ruuxee.com/api/web/v1/article/{post_visible_id}
---    POST http://www.ruuxee.com/api/web/v1/follow/topic/{topic_visible_id}
---    POST http://www.ruuxee.com/api/web/v1/follow/person/{person_visible_id}
---    POST http://www.ruuxee.com/api/web/v1/unfollow/person/{person_visible_id}
---    POST http://www.ruuxee.com/api/web/v1/unfollow/topic/{topic_visible_id}
---    POST http://www.ruuxee.com/api/web/v1/upvote/post/{post_visible_id}
---    POST http://www.ruuxee.com/api/web/v1/unupvote/post/{post_visible_id}
---    POST http://www.ruuxee.com/api/web/v1/downvote/post/{post_visible_id}
---    POST http://www.ruuxee.com/api/web/v1/undownvote/post/{post_visible_id}
---    POST http://www.ruuxee.com/api/web/v1/edit/vote/{post_visible_id}
---    POST http://www.ruuxee.com/api/web/v1/delete/post/{post_visible_id}
---    GET http://www.ruuxee.com/api/web/v1/add/post/
---    POST http://www.ruuxee.com/api/web/v1/edit/article/{post_visible_id}
---    GET http://www.ruuxee.com/api/web/v1/add/comment/post/{post_visible_id}/
---    POST http://www.ruuxee.com/api/web/v1/edit/comment/{comment_visible_id}/
---    POST http://www.ruuxee.com/api/web/v1/delete/comment/{comment_visible_id}/
+--    GET http://www.ruuxee.com/person/<person_visible_id>
+--    GET http://www.ruuxee.com/person/<person_readable_id>
+--    GET http://www.ruuxee.com/post/<post_visible_id>
+
+--    GET http://www.ruuxee.com/api/web/v1/post/<post_visible_id>
+--    GET http://www.ruuxee.com/api/web/v1/post-brief/<post_visible_id>
+--    POST http://www.ruuxee.com/api/web/v1/follow/topic/<topic_visible_id>
+--    POST http://www.ruuxee.com/api/web/v1/follow/person/<person_visible_id>
+--    POST http://www.ruuxee.com/api/web/v1/unfollow/person/<person_visible_id>
+--    POST http://www.ruuxee.com/api/web/v1/unfollow/topic/<topic_visible_id>
+--    POST http://www.ruuxee.com/api/web/v1/upvote/post/<post_visible_id>
+--    POST http://www.ruuxee.com/api/web/v1/unupvote/post/<post_visible_id>
+--    POST http://www.ruuxee.com/api/web/v1/downvote/post/<post_visible_id>
+--    POST http://www.ruuxee.com/api/web/v1/undownvote/post/<post_visible_id>
+--    POST http://www.ruuxee.com/api/web/v1/edit/vote/<post_visible_id>
+--    POST http://www.ruuxee.com/api/web/v1/delete/post/<post_visible_id>
+--    PUT http://www.ruuxee.com/api/web/v1/add/post/topic/<post_visible_id>
+--    POST http://www.ruuxee.com/api/web/v1/edit/post/<post_visible_id>
+--    GET http://www.ruuxee.com/api/web/v1/add/comment/post/<post_visible_id>/
+--    POST http://www.ruuxee.com/api/web/v1/delete/comment/<comment_visible_id>/
 --
---    GET http://www.ruuxee.com/api/web/v1/timeline/
---    GET http://www.ruuxee.com/api/web/v1/timeline/
---
---    POST http://www.ruuxee.com/api/web/v1/avartar/{person_id}
---    GET http://api.ruuxee.com/web/v1/timeline/updates
+--    GET http://www.ruuxee.com/api/web/v1/timeline/updates/<last_item_id>
 --
 -- NOTE
--- a. All add* operations must use GET to retrieve visible_ids.
+-- a. All add* operations must use PUT to retrieve visible_ids.
 -- b. The original person visible ID is ALWAYS invisible because they
 --    are stored in cookie (web API) or header (oauth2 API)

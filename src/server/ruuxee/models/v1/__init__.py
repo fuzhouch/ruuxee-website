@@ -57,3 +57,15 @@ ALL_PERSON_STATUS = [
         PERSON_ACTION_EDIT_COMMENT,
         PERSON_ACTION_REMOVE_COMMENT ]
 
+class Person(object):
+    pass
+
+class Post(object):
+    pass
+
+class Topic(object):
+    pass
+
+class Comment(object):
+    pass
+

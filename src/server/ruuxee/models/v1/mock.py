@@ -63,10 +63,27 @@ class Database(object):
 
     def persons(self):
         return self.__persons
+
     def posts(self):
         return self.__posts
+
     def topics(self):
         return self.__topics
+
+    def query_person(self, key, value, fields):
+        found_persons = []
+        for each_person in self.__persons:
+            person_dict = each_person.__dict__
+            # Note: Comparison is case sensitive
+            if key in person_dict and person_dict[key] == value:
+                found = {}
+                for each_field in fields:
+                    if each_field in person_dict:
+                        found[each_field] = person_dict[each_field]
+                found_persons.append(found)
+        if len(found_persons) > 0:
+            return found_persons
+        return None
 
     def __init__(self):
         self.__persons = []
@@ -74,7 +91,7 @@ class Database(object):
         self.__topics = []
         # Create random data
         for each_person in Database.person_names:
-            p = Person()
+            p = model1.Person()
             rand = self.__get_random_visible_id_str()
             p.visible_id = int(rand)
             p.anonymous_sha1 = hashlib.sha1(rand).hexdigest()
@@ -94,7 +111,7 @@ class Database(object):
             p.country = random.choice(Database.countries)
             self.__persons.append(p)
         for i in range(100, random.randint(100, 200)):
-            po = Post()
+            po = model1.Post()
             rand = self.__get_random_visible_id_str()
             po.visible_id = int(rand)
             po.status = random.choice(model1.ALL_POST_STATUS)
@@ -110,7 +127,7 @@ class Database(object):
             self.__posts.append(po)
 
         for each_title in Database.topic_titles:
-            to = Topic()
+            to = model1.Topic()
             rand = self.__get_random_visible_id_str()
             to.visible_id = int(rand)
             to.title = each_title
@@ -122,14 +139,31 @@ class Redis(object):
     "A fake Redis database object."
     pass
 
-class Person(object):
-    "A mock object for querying person information."
-    pass
+class AlwaysBourneZhuWebSession(object):
+    """A fake WebSession that deal with login session.
 
-class Post(object):
-    "A mock object for querying posts."
-    pass
+    The fake web session always consider user as bourne.zhu. So web UI
+    developers can test single page, without the needs of really doing
+    any logon session.
+    """
+    def __init__(self, database):
+        self.__database = database
+        pass
+    def validate(self, request):
+        # No matter what happen, always predict authentication success.
+        # This is important for web UI developers to test UI without
+        # authentication.
+        return True
 
-class Topic(object):
-    "A mock object for querying topics."
-    pass
+    def last_authenticated_person_name(self):
+        return Database.person_names[0]['name']
+
+    def last_authenticated_person_readable_id(self):
+        return Database.person_names[0]['readable_id']
+
+    def last_authenticated_person_visible_id(self):
+        readable_id = Database.person_names[0]['readable_id']
+        data = self.__database.query_person('readable_id', readable_id,\
+                                            ['visible_id'])
+        assert len(data) == 1 and 'visible_id' in data[0]
+        return data[0]['visible_id']

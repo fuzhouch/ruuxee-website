@@ -8,13 +8,15 @@
     2. Start server in debug mode.
 """
 
-class FakeSql(object):
-    pass
-class FakeRedis(object):
-    pass
-class FakeAuth(object):
-    pass
+import ruuxee.models.v1.mock as mockv1
+import ruuxee.models.v1 as v1
 
-DATABASE = FakeSql()
-MEMCACHE = FakeRedis()
-AUTH = FakeAuth()
+#
+# For web UI developers, we use fake data to minimize configuration.
+# Change it to use ruuxee.models.v1.Database and ruuxee.model.v1.Redis
+# if you want to use real production data.
+#
+database = mockv1.Database()
+# Configuration to be used by ruuxee models.
+RUUXEE_DATA_ACCESS = database
+RUUXEE_SESSION_MANAGER = mockv1.AlwaysBourneZhuWebSession(database)

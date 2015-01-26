@@ -3,11 +3,16 @@
 # Copyright @2015 by ruuxee.com, All rights reserved.
 "Main module to start ruuxee."
 
-__version__ = "0.1"
+__version__ = "0.1.0.0"
 
 import flask
+import sys
+if sys.version_info.major >= 3:
+    import http.client as httplib
+else:
+    import httplib
 
-APP_NAME = 'ruuxee'
+APP_NAME = 'ruuxee' # Hardcoded package name. Don't change.
 
 class Application(flask.Flask):
     "Toplevel flask application generator."
