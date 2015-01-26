@@ -38,17 +38,27 @@ def get_person_brief(person_visible_id):
     session = flask.current_app.config["RUUXEE_SESSION_MANAGER"]
     # Brief information contains only the following fields. They are
     # supposed to be used in hovering popup window.
-    visible_id = session.last_authenticated_person_visible_id()
     fields = ["name", "visible_id"]
+    data = None
+    try:
+        visible_id = int(person_visible_id)
+    except Exception: # Invalid visible_id
+        resp = flask.jsonify(status_code=ruuxee.httplib.BAD_REQUEST)
+        resp.status_code = ruuxee.httplib.BAD_REQUEST
+        resp.content_encoding = 'utf-8'
+        return resp
     data = dataaccess.query_person('visible_id', visible_id, fields)
     if data is None: # Data not found.
         resp = flask.jsonify(status_code=ruuxee.httplib.BAD_REQUEST)
         resp.status_code = ruuxee.httplib.BAD_REQUEST
+        resp.content_encoding = 'utf-8'
         return resp
     assert len(data) == 1
-    return flask.jsonify(status_code=ruuxee.httplib.OK, \
+    resp = flask.jsonify(status_code=ruuxee.httplib.OK, \
                          name=data[0]["name"],\
                          visible_id=data[0]["visible_id"])
+    resp.content_encoding = 'utf-8'
+    return resp
 
 @page.route('post-brief/<post_visible_id>')
 def get_post_brief(post_visible_id):

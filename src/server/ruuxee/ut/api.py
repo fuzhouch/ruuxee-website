@@ -6,6 +6,7 @@ import unittest
 import random
 import ruuxee.apis.v1.web
 import ruuxee.models.v1.mock
+import json
 
 class TestApiWithoutAuth(unittest.TestCase):
     def setUp(self):
@@ -25,8 +26,13 @@ class TestApiWithoutAuth(unittest.TestCase):
                 visible_id = each_person.visible_id
                 resp = c.get('%s/%s' % (path, visible_id))
                 self.assertEqual(resp.status_code, ruuxee.httplib.OK)
-            # Yes, this is a correct case. Right now webui_dev always
-            # return true on authentication, no matter what value is.
+                self.assertEqual(resp.content_encoding, 'utf-8')
+                data = json.loads(resp.data)
+                self.assertEqual(data['name'], each_person.name)
+                self.assertEqual(data['visible_id'],
+                                 each_person.visible_id)
+                self.assertEqual(len(data), 3)
+
             resp = c.get('%s/inavlid_id' % path)
-            self.assertEqual(resp.status_code, ruuxee.httplib.OK)
+            self.assertEqual(resp.status_code, ruuxee.httplib.BAD_REQUEST)
 
