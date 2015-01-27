@@ -5,8 +5,8 @@ source code to setup Ruuxee web site, including:
 * bin/  Scripts and tools for deployment and maintanence.
 * docs/ Documentation.
 * src/  Source code. Including,
-  - src/backend/ Source code for backend applications. Defined by roles.
-  - src/frontend/ Source code for frontend (HTML/CSS/JavaScript).
+  - src/server/ Source code for backend applications. Defined by roles.
+  - src/webui/ Source code for frontend (HTML/CSS/JavaScript).
 
 ## Get Started
 

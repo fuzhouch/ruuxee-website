@@ -109,7 +109,9 @@ echo "Done."
 # After installing, we put the 
 echo -n "Deploy ruuxee module to environment... "
 RUUXEE_MODULE=${SCRIPT_DIR_FULL}/../src/server/ruuxee
+RUUXEE_SCRIPTS=${SCRIPT_DIR_FULL}/../src/server/bin
 cp -r ${RUUXEE_MODULE} ./lib/python${PYTHON_VER}/site-packages
+cp -rf ${RUUXEE_SCRIPTS}/* ./bin/
 echo "Done."
 
 # TODO: Deploy executable scripts to bin folder.

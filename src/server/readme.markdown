@@ -4,6 +4,21 @@ This folder contains implementation of ruuxee.com backend. It contains
 code to manipulate database and represent it via APIs.
 
 ##Quick start
+
+###Preparation a dev box
+Before running server please make sure you have the following condition
+met:
+
+1. Your dev box is Linux or Mac.
+2. You have python 2.7.+ installed.
+
+Then you can run command in Terminal from ruuxee-website:
+
+    pip install --requirement scripts//ruuxee-server-env-deps.txt
+
+Then you have all tools installed on your dev box.
+
+###Local test
 To start a server with mock backend for testing, please run command
 below:
 
