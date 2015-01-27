@@ -1,0 +1,10 @@
+<!doctype html>
+<title>如戏：后端测试页面：用户信息</title>
+{% if name %}
+  <h1>用户：{{ name }}</h1>
+  <h2>    用户名: {{ readable_id }}</h2>
+  <h2>    如戏第 {{ visible_id }} 号用户 </h2>
+  <h2>    公司：{{ company }}</h2>
+{% else %}
+  <h1>未知用户</h1>
+{% endif %}

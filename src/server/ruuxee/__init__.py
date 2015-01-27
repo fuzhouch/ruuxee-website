@@ -7,6 +7,7 @@ __version__ = "0.1.0.0"
 
 import flask
 import sys
+import os.path
 if sys.version_info.major >= 3:
     import http.client as httplib
 else:
@@ -16,13 +17,19 @@ APP_NAME = 'ruuxee' # Hardcoded package name. Don't change.
 
 class Application(flask.Flask):
     "Toplevel flask application generator."
-    def __init__(self, config):
+    def __init__(self, config, template_folder=None):
         """Application.__init__(self, config)
 
         Extends flask.Flask for a unified configuration.
         """
         self.__app_name = APP_NAME # Flask modules require hardcoded name
-        flask.Flask.__init__(self, self.__app_name)
+        if template_folder is not None:
+            full_path = os.path.abspath(template_folder)
+            flask.Flask.__init__(self, self.__app_name,
+                                 template_folder=full_path)
+        else:
+            # Pick default template folder
+            flask.Flask.__init__(self, self.__app_name)
         self.config.from_object(config)
     def app_name(self):
         return self.__app_name
