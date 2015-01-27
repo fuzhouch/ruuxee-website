@@ -29,9 +29,26 @@ class TestApiWithoutAuth(unittest.TestCase):
                 self.assertEqual(resp.content_encoding, 'utf-8')
                 data = json.loads(resp.data)
                 self.assertEqual(data['name'], each_person.name)
+                self.assertEqual(data['company'], each_person.company)
                 self.assertEqual(data['visible_id'],
                                  each_person.visible_id)
-                self.assertEqual(len(data), 3)
+                self.assertEqual(data['readable_id'],
+                                 each_person.readable_id)
+                self.assertEqual(len(data), 5)
+            for each_person in dataaccess.persons():
+                readable_id = each_person.readable_id
+                resp = c.get('%s/%s' % (path, readable_id))
+                self.assertEqual(resp.status_code, ruuxee.httplib.OK)
+                self.assertEqual(resp.content_encoding, 'utf-8')
+                data = json.loads(resp.data)
+                self.assertEqual(data['name'], each_person.name)
+                self.assertEqual(data['company'], each_person.company)
+                self.assertEqual(data['visible_id'],
+                                 each_person.visible_id)
+                self.assertEqual(data['readable_id'],
+                                 each_person.readable_id)
+                self.assertEqual(len(data), 5)
+
 
             resp = c.get('%s/inavlid_id' % path)
             self.assertEqual(resp.status_code, ruuxee.httplib.BAD_REQUEST)
