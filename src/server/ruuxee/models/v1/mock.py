@@ -9,6 +9,19 @@ import string
 import random
 import hashlib
 
+class Person(object):
+    pass
+
+class Post(object):
+    pass
+
+class Topic(object):
+    pass
+
+class Comment(object):
+    pass
+
+
 class Database(object):
     cities = [ u"腾冲", u"嘉兴", u"雪乡", u"乌兰察布", u"通县", u"长湖镇" ]
     countries = [ u"天朝", u"Middle Earth", u"爱沙尼亚" ]
@@ -91,7 +104,7 @@ class Database(object):
         self.__topics = []
         # Create random data
         for each_person in Database.person_names:
-            p = model1.Person()
+            p = Person()
             rand = self.__get_random_visible_id_str()
             p.visible_id = int(rand)
             p.anonymous_sha1 = hashlib.sha1(rand).hexdigest()
@@ -111,7 +124,7 @@ class Database(object):
             p.country = random.choice(Database.countries)
             self.__persons.append(p)
         for i in range(100, random.randint(100, 200)):
-            po = model1.Post()
+            po = Post()
             rand = self.__get_random_visible_id_str()
             po.visible_id = int(rand)
             po.status = random.choice(model1.ALL_POST_STATUS)
@@ -127,7 +140,7 @@ class Database(object):
             self.__posts.append(po)
 
         for each_title in Database.topic_titles:
-            to = model1.Topic()
+            to = Topic()
             rand = self.__get_random_visible_id_str()
             to.visible_id = int(rand)
             to.title = each_title
@@ -155,15 +168,15 @@ class AlwaysBourneZhuWebSession(object):
         # authentication.
         return True
 
-    def last_authenticated_person_name(self):
-        return Database.person_names[0]['name']
+#    def last_authenticated_person_name(self):
+#        return Database.person_names[0]['name']
 
-    def last_authenticated_person_readable_id(self):
-        return Database.person_names[0]['readable_id']
+#    def last_authenticated_person_readable_id(self):
+#        return Database.person_names[0]['readable_id']
 
-    def last_authenticated_person_visible_id(self):
-        readable_id = Database.person_names[0]['readable_id']
-        data = self.__database.query_person('readable_id', readable_id,\
-                                            ['visible_id'])
-        assert len(data) == 1 and 'visible_id' in data[0]
-        return data[0]['visible_id']
+#    def last_authenticated_person_visible_id(self):
+#        readable_id = Database.person_names[0]['readable_id']
+#        data = self.__database.query_person('readable_id', readable_id,\
+#                                            ['visible_id'])
+#        assert len(data) == 1 and 'visible_id' in data[0]
+#        return data[0]['visible_id']

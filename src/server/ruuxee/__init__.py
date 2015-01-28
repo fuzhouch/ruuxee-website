@@ -34,9 +34,18 @@ class Application(flask.Flask):
     def app_name(self):
         return self.__app_name
 
+    @staticmethod
+    def current_data_access():
+        return flask.current_app.config["RUUXEE_DATA_ACCESS"]
+
+    @staticmethod
+    def current_session_manager():
+        return flask.current_app.config["RUUXEE_SESSION_MANAGER"]
+
 class View(flask.Blueprint):
     "Toplevel view generator, based on :object:flask.Blueprint."
     def __init__(self, view_name):
         # Make sure all views share the same inherited folder structure.
         self.__app_name = APP_NAME
         flask.Blueprint.__init__(self, view_name, self.__app_name)
+

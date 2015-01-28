@@ -16,7 +16,7 @@ def signin_required(f):
     """
     @functools.wraps(f)
     def signin_checker(*args, **kwargs):
-        session = flask.current_app.config["RUUXEE_SESSION_MANAGER"]
+        session = ruuxee.Application.current_session_manager()
         success = session.validate(flask.request)
         if not success: # Failed to authenticate.
             resp = flask.jsonify(status_code=ruuxee.httplib.UNAUTHORIZED)
@@ -26,38 +26,26 @@ def signin_required(f):
             return f(*args, **kwargs)
     return signin_checker
 
-@page.route('/person-brief/<person_visible_id>')
+@page.route('/person-brief/<person_id>')
 @signin_required
-def get_person_brief(person_visible_id):
-    """def get_person_brief(person_visible_id): -> Json
+def get_person_brief(person_id):
+    """def get_person_brief(person_id): -> Json
 
     Return a brief of specified person, including name, company, city,
     follow-unfollow relationship, etc.
+
+    The function accepts both visible ID and/or readable ID of user as
+    input.
     """
-    dataaccess = flask.current_app.config["RUUXEE_DATA_ACCESS"]
-    session = flask.current_app.config["RUUXEE_SESSION_MANAGER"]
-    # Brief information contains only the following fields. They are
-    # supposed to be used in hovering popup window.
-    fields = ["name", "visible_id", "readable_id", "company"]
-    data = None
-    try:
-        check_id = int(person_visible_id)
-        data = dataaccess.query_person('visible_id', check_id, fields)
-    except Exception: # Invalid visible ID, try user ID again.
-        data = dataaccess.query_person('readable_id', \
-                                       person_visible_id, fields)
+    dataaccess = ruuxee.Application.current_data_access()
+    data = dataaccess.get_person_brief(person_id)
     if data is None: # Data not found.
         resp = flask.jsonify(status_code=ruuxee.httplib.BAD_REQUEST)
         resp.status_code = ruuxee.httplib.BAD_REQUEST
         resp.content_encoding = 'utf-8'
-        return resp
-    assert len(data) == 1
-    resp = flask.jsonify(status_code=ruuxee.httplib.OK, \
-                         name=data[0]["name"],\
-                         visible_id=data[0]["visible_id"],
-                         readable_id=data[0]["readable_id"],
-                         company=data[0]["company"])
-    resp.content_encoding = 'utf-8'
+    else:
+        resp = flask.jsonify(status_code=ruuxee.httplib.OK, **data[0])
+        resp.content_encoding = 'utf-8'
     return resp
 
 @page.route('post-brief/<post_visible_id>')
@@ -66,6 +54,7 @@ def get_post_brief(post_visible_id):
 
     Return a brief of specified post, including title, author, etc.
     """
+    database = ruuxee.current_model()
     pass
 
 @page.route('post/<post_visible_id>')

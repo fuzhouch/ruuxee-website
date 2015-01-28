@@ -16,7 +16,8 @@ import ruuxee.models.v1 as v1
 # Change it to use ruuxee.models.v1.Database and ruuxee.model.v1.Redis
 # if you want to use real production data.
 #
-database = mockv1.Database()
 # Configuration to be used by ruuxee models.
-RUUXEE_DATA_ACCESS = database
+database = mockv1.Database()
+cache = None
+RUUXEE_DATA_ACCESS = v1.DataAccess(database, cache)
 RUUXEE_SESSION_MANAGER = mockv1.AlwaysBourneZhuWebSession(database)

@@ -57,15 +57,24 @@ ALL_PERSON_STATUS = [
         PERSON_ACTION_EDIT_COMMENT,
         PERSON_ACTION_REMOVE_COMMENT ]
 
-class Person(object):
-    pass
+import flask
+class DataAccess(object):
+    def __init__(self, database, cache):
+        self.__db = database
+        self.__cache = cache
+        pass
+    def get_person_brief(self, person_id):
+        # Brief information contains only the following fields. They are
+        # supposed to be used in hovering popup window.
+        fields = ["name", "visible_id", "readable_id", "company"]
+        data = None
+        try:
+            check_id = int(person_id)
+            data = self.__db.query_person('visible_id', check_id, fields)
+        except Exception: # Invalid visible ID, try user ID again.
+            data = self.__db.query_person('readable_id', person_id, fields)
+        return data
 
-class Post(object):
-    pass
-
-class Topic(object):
-    pass
-
-class Comment(object):
-    pass
-
+    @property
+    def db(self):
+        return self.__db
