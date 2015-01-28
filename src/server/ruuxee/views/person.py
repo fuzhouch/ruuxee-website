@@ -18,4 +18,4 @@ def get_person_info(person_id):
     data = dataaccess.get_person_brief(person_id)
     if data is None: # Data not found.
         return flask.render_template('person.html')
-    return flask.render_template('person.html', **data[0])
+    return flask.render_template('person.html', **data)

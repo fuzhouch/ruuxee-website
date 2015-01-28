@@ -48,6 +48,7 @@ CREATE TABLE ruuxee_post_v1 (
     written_timestamp TIMESTAMP,    -- The time the post is written
     title VARCHAR(192),             -- 64 utf-8 Chinese characters
     content_html VARCHAR(30000)     -- 10000 utf-8 Chinese characters
+    brief_text VARCHAR(300)         -- 300 utf-8 Chinese characters
 )
 
 -- Enumerated post status

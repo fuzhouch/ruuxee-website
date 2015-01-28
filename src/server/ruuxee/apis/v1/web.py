@@ -8,6 +8,21 @@ import functools
 
 page = ruuxee.View('web')
 
+# ==== Helper functions ===
+def make_json_response(data):
+    """def make_json_response(data) -> flask.Response(json_blob)
+
+    This is a helper function when returning objects.
+    """
+    if data is None: # Data not found.
+        resp = flask.jsonify(status_code=ruuxee.httplib.BAD_REQUEST)
+        resp.status_code = ruuxee.httplib.BAD_REQUEST
+        resp.content_encoding = 'utf-8'
+    else:
+        resp = flask.jsonify(status_code=ruuxee.httplib.OK, **data)
+        resp.content_encoding = 'utf-8'
+    return resp
+
 def signin_required(f):
     """def signin_required(f): -> None
 
@@ -26,6 +41,7 @@ def signin_required(f):
             return f(*args, **kwargs)
     return signin_checker
 
+# ==== Helper functions ===
 @page.route('/person-brief/<person_id>')
 @signin_required
 def get_person_brief(person_id):
@@ -39,145 +55,174 @@ def get_person_brief(person_id):
     """
     dataaccess = ruuxee.Application.current_data_access()
     data = dataaccess.get_person_brief(person_id)
-    if data is None: # Data not found.
-        resp = flask.jsonify(status_code=ruuxee.httplib.BAD_REQUEST)
-        resp.status_code = ruuxee.httplib.BAD_REQUEST
-        resp.content_encoding = 'utf-8'
-    else:
-        resp = flask.jsonify(status_code=ruuxee.httplib.OK, **data[0])
-        resp.content_encoding = 'utf-8'
-    return resp
+    return make_json_response(data)
 
-@page.route('post-brief/<post_visible_id>')
+@page.route('/post-brief/<post_visible_id>')
+@signin_required
 def get_post_brief(post_visible_id):
     """def get_post_brief(post_visible_id): -> Json
 
     Return a brief of specified post, including title, author, etc.
     """
-    database = ruuxee.current_model()
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    data = dataaccess.get_post_brief(post_visible_id)
+    return make_json_response(data)
 
-@page.route('post/<post_visible_id>')
+@page.route('/post/<post_visible_id>')
+@signin_required
 def get_post(post_visible_id):
     """def get_post(post_visible_id): -> Json
 
     Return a full content of given post.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    return make_json_response(dataaccess.get_post(post_visible_id))
 
 @page.route('/follow/topic/<topic_visible_id>', methods=['POST'])
+@signin_required
 def follow_topic(topic_visible_id):
     """def follow_topic(topic_visible_id): -> Json
 
     Make current person follow a topic, specified by visible ID.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    return make_json_response(dataaccess.follow_topic(topic_visible_id))
 
 @page.route('/unfollow/topic/<topic_visible_id>', methods=['POST'])
+@signin_required
 def unfollow_topic(topic_visible_id):
     """def unfollow_topic(topic_visible_id): -> Json
 
     Make current person unfollow a topic, specified by visible ID.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    return make_json_response(dataaccess.unfollow_topic(topic_visible_id))
 
-@page.route('/follow/person/<person_visible_id>', methods=['POST'])
-def follow_person(person_visible_id):
-    """def follow_person(person_visible_id): -> Json
+@page.route('/follow/person/<person_id>', methods=['POST'])
+@signin_required
+def follow_person(person_id):
+    """def follow_person(person_id): -> Json
 
     Make current person follow another, specified by visible ID.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    return make_json_response(dataaccess.follow_person(person_id))
 
-@page.route('/unfollow/person/<person_visible_id>', methods=['POST'])
-def unfollow_person(person_visible_id):
-    """def unfollow_person(person_visible_id): -> Json
+@page.route('/unfollow/person/<person_id>', methods=['POST'])
+@signin_required
+def unfollow_person(person_id):
+    """def unfollow_person(person_id): -> Json
 
     Make current person unfollow another, specified by visible ID.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    return make_json_response(dataaccess.unfollow_person(person_id))
 
 @page.route('/upvote/post/<post_visible_id>', methods=['POST'])
+@signin_required
 def upvote_post(post_visible_id):
     """def upvote_post(post_visible_id): -> Json
 
     Make current person upvote a post, specified by visible ID.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    return make_json_response(dataaccess.upvote_post(post_visible_id))
 
 @page.route('/unupvote/post/<post_visible_id>', methods=['POST'])
+@signin_required
 def unupvote_post(post_visible_id):
     """def unupvote_post(post_visible_id): -> Json
 
     Make current person un-upvote a post, specified by visible ID.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    return make_json_response(dataaccess.unupvote_post(post_visible_id))
 
 @page.route('/downvote/post/<post_visible_id>', methods=['POST'])
+@signin_required
 def downvote_post(post_visible_id):
     """def downvote_post(post_visible_id): -> Json
 
     Make current person downvote a post, specified by visible ID.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    return make_json_response(dataaccess.downvote_post(post_visible_id))
 
 @page.route('/undownvote/post/<post_visible_id>', methods=['POST'])
+@signin_required
 def undownvote_post(post_visible_id):
     """def undownvote_post(post_visible_id): -> Json
 
     Make current person downvote a post, specified by visible ID.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    return make_json_response(dataaccess.undownvote_post(post_visible_id))
 
 @page.route('/add/post/topic/<topic_visible_id>', methods=['PUT'])
+@signin_required
 def add_post_under_topic(topic_visible_id):
     """def add_post_under_topic(topic_visible_id): -> Json
 
     Make current person add a new post under topic. The content of post
     is attached in HTML body.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    data = dataaccess.add_post_under_topic(topic_visible_id)
+    return make_json_response(data)
 
 @page.route('/edit/post/<post_visible_id>', methods=['POST'])
+@signin_required
 def edit_post(post_visible_id):
     """def edit_post(post_visible_id): -> Json
 
     Make current person edit a post, specified by post visible ID. A
     person can only edit a post written by himself/herself.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    return make_json_response(dataaccess.edit_post(post_visible_id))
 
 @page.route('/delete/post/<post_visible_id>', methods=['POST'])
+@signin_required
 def delete_post(post_visible_id):
     """def delete_post(post_visible_id): -> Json
 
     Make current person delete a post, specified by post visible ID. A
     person can only edit a post written by himself/herself.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    return make_json_response(dataaccess.delete_post(post_visible_id))
 
 @page.route('/add/comment/post/<post_visible_id>', methods=['PUT'])
+@signin_required
 def add_comment_under_post(post_visible_id):
     """def add_comment_under_post(post_visible_id):
 
     Add a comment under specified post.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    data = dataaccess.add_comment_under_post(post_visible_id)
+    return make_json_response(data)
 
 @page.route('/delete/comment/<comment_visible_id>', methods=['POST'])
+@signin_required
 def delete_comment(comment_visible_id):
     """def delete_comment(comment_visible_id):
 
     Delete a specified comment. A person can only delete a comment
     written by himself/herself.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    data = dataaccess.delete_comment(comment_visible_id)
+    return make_json_response(data)
 
 @page.route('/timeline/updates/<last_item_id>', methods=['GET'])
+@signin_required
 def get_timeline_updates(last_item_id):
     """def get_timeline_updates(last_item_id): -> Json
 
     Get latest updates of current timeline. It retrieves only the items
     later than speicified item ID.
     """
-    pass
+    dataaccess = ruuxee.Application.current_data_access()
+    data = dataaccess.delete_comment(comment_visible_id)
+    return make_json_response(data)

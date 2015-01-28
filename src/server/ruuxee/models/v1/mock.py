@@ -84,18 +84,25 @@ class Database(object):
         return self.__topics
 
     def query_person(self, key, value, fields):
-        found_persons = []
-        for each_person in self.__persons:
-            person_dict = each_person.__dict__
+        return self.__query_object(self.__persons, key, value, fields)
+    def query_post(self, key, value, fields):
+        return self.__query_object(self.__posts, key, value, fields)
+    def query_topic(self, key, value, fields):
+        return self.__query_object(self.__topics, key, value, fields)
+
+    def __query_object(self, table, key, value, fields):
+        found_objects = []
+        for each_object in table:
+            object_dict = each_object.__dict__
             # Note: Comparison is case sensitive
-            if key in person_dict and person_dict[key] == value:
+            if key in object_dict and object_dict[key] == value:
                 found = {}
                 for each_field in fields:
-                    if each_field in person_dict:
-                        found[each_field] = person_dict[each_field]
-                found_persons.append(found)
-        if len(found_persons) > 0:
-            return found_persons
+                    if each_field in object_dict:
+                        found[each_field] = object_dict[each_field]
+                found_objects.append(found)
+        if len(found_objects) > 0:
+            return found_objects
         return None
 
     def __init__(self):
@@ -133,10 +140,13 @@ class Database(object):
             po.author_visible_id = author.visible_id
             po.written_timestamp = \
                     time.time() + random.randint(100000, 500000)
-            po.title = random.choice(Database.post_titles) % \
-                                    random.choice(Database.person_names)
+            name = random.choice(Database.person_names)["name"]
+            po.title = random.choice(Database.post_titles) % name
+                            
             po.content_html = \
-                    u"很久很久以前，有一个%s的故事..." % author.city
+                    u"很久很久以前，有一个%s的故事，主角是%s" % \
+                    (author.city, author.name)
+            po.brief_text = u"有一个%s的故事..." % author.city
             self.__posts.append(po)
 
         for each_title in Database.topic_titles:
@@ -168,15 +178,21 @@ class AlwaysBourneZhuWebSession(object):
         # authentication.
         return True
 
-#    def last_authenticated_person_name(self):
-#        return Database.person_names[0]['name']
+    def authenticated_person_visible_id(self):
+        return Database.person_names[0]["visible_id"]
+    def authenticated_person_name(self):
+        return Database.person_names[0]["name"]
 
-#    def last_authenticated_person_readable_id(self):
-#        return Database.person_names[0]['readable_id']
+class AlwaysFalseWebSession(object):
+    """A fake WebSession that always return login failure.
 
-#    def last_authenticated_person_visible_id(self):
-#        readable_id = Database.person_names[0]['readable_id']
-#        data = self.__database.query_person('readable_id', readable_id,\
-#                                            ['visible_id'])
-#        assert len(data) == 1 and 'visible_id' in data[0]
-#        return data[0]['visible_id']
+    This is a useful mock to test page redirection and API failure.
+    """
+    def __init__(self, database):
+        pass
+    def validate(self, request):
+        return False
+
+    def authenticated_user_visible_id(self):
+        # No use. And will trigger error if anyone really calls it.
+        return None
