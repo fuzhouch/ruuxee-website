@@ -18,6 +18,10 @@ def make_json_response(data):
         resp = flask.jsonify(status_code=ruuxee.httplib.BAD_REQUEST)
         resp.status_code = ruuxee.httplib.BAD_REQUEST
         resp.content_encoding = 'utf-8'
+    elif "status_code" in data:
+        resp = flask.jsonify(**data)
+        resp.status_code = data["status_code"]
+        resp.content_encoding = 'utf-8'
     else:
         resp = flask.jsonify(status_code=ruuxee.httplib.OK, **data)
         resp.content_encoding = 'utf-8'
@@ -41,7 +45,7 @@ def signin_required(f):
             return f(*args, **kwargs)
     return signin_checker
 
-# ==== Helper functions ===
+# ==== Api handlers ===
 @page.route('/person-brief/<person_id>')
 @signin_required
 def get_person_brief(person_id):
@@ -85,6 +89,8 @@ def follow_topic(topic_visible_id):
 
     Make current person follow a topic, specified by visible ID.
     """
+    # To be implemented: We don't actually know the meaning of topic for
+    # now.
     dataaccess = ruuxee.Application.current_data_access()
     return make_json_response(dataaccess.follow_topic(topic_visible_id))
 
@@ -95,28 +101,38 @@ def unfollow_topic(topic_visible_id):
 
     Make current person unfollow a topic, specified by visible ID.
     """
+    # TODO
+    # To be implemented: We don't actually know the meaning of topic for
+    # now.
     dataaccess = ruuxee.Application.current_data_access()
     return make_json_response(dataaccess.unfollow_topic(topic_visible_id))
 
-@page.route('/follow/person/<person_id>', methods=['POST'])
+@page.route('/follow/person/<follow_person_id>', methods=['POST'])
 @signin_required
-def follow_person(person_id):
-    """def follow_person(person_id): -> Json
+def follow_person(follow_person_id):
+    """def follow_person(follow_person_id): -> Json
 
     Make current person follow another, specified by visible ID.
     """
     dataaccess = ruuxee.Application.current_data_access()
-    return make_json_response(dataaccess.follow_person(person_id))
+    session = ruuxee.Application.current_session_manager()
+    this_person_id = session.authenticated_person_visible_id()
+    resp = dataaccess.follow_person(this_person_id, follow_person_id)
+    return make_json_response(resp)
 
-@page.route('/unfollow/person/<person_id>', methods=['POST'])
+@page.route('/unfollow/person/<unfollow_person_id>', methods=['POST'])
 @signin_required
-def unfollow_person(person_id):
-    """def unfollow_person(person_id): -> Json
+def unfollow_person(unfollow_person_id):
+    """def unfollow_person(unfollow_person_id): -> Json
 
     Make current person unfollow another, specified by visible ID.
     """
     dataaccess = ruuxee.Application.current_data_access()
-    return make_json_response(dataaccess.unfollow_person(person_id))
+    session = ruuxee.Application.current_session_manager()
+    this_person_id = session.authenticated_person_visible_id()
+    resp = dataaccess.unfollow_person(this_person_id, unfollow_person_id)
+    return make_json_response(resp)
+
 
 @page.route('/upvote/post/<post_visible_id>', methods=['POST'])
 @signin_required
@@ -166,6 +182,9 @@ def add_post_under_topic(topic_visible_id):
     Make current person add a new post under topic. The content of post
     is attached in HTML body.
     """
+    # TODO
+    # To be implemented: We don't actually know the meaning of topic for
+    # now.
     dataaccess = ruuxee.Application.current_data_access()
     data = dataaccess.add_post_under_topic(topic_visible_id)
     return make_json_response(data)

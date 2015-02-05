@@ -70,76 +70,60 @@ CREATE TABLE ruuxee_topic_v1 (
 
 -- 1. Person's action history (from latest to earlest)
 --     type = list
---     name = "pa:{person_visible_id}"
+--     name = "pa{person_visible_id}"
 --     value = "{timestamp}:{action_id}:{target_visible_id}"
 
 --     Values of action_id
---         a = login
---         b = logout
---         c = follow_person
---         d = unfollow_person
---         e = follow_topic
---         f = unfollow_topic
---         g = upvote_post
---         h = unupvote_post
---         i = downvote_post
---         j = undownvote_post
---         k = appreciate_post
---         l = write_post
---         m = edit_post
---         n = delete_post
---         o = add_comment
---         p = edit_comment
---         q = remove_comment
-
+--         PERSON_ACTION_CREATE_ACCOUNT = 'a'
+--         PERSON_ACTION_DELETE_ACCOUNT = 'b'
+--         PERSON_ACTION_UPDATE_ACCOUNT_INFO = 'c'
+--         PERSON_ACTION_LOGIN = 'd'
+--         PERSON_ACTION_LOGOUT = 'e'
+--         PERSON_ACTION_FOLLOW_PERSON = 'f'
+--         PERSON_ACTION_UNFOLLOW_PERSON = 'g'
+--         PERSON_ACTION_FOLLOW_TOPIC = 'h'
+--         PERSON_ACTION_UNFOLLOW_TOPIC = 'i'
+--         PERSON_ACTION_UPVOTE_POST = 'j'
+--         PERSON_ACTION_UNUPVOTE_POST = 'k'
+--         PERSON_ACTION_DOWNVOTE_POST = 'l'
+--         PERSON_ACTION_UNDOWNVOTE_POST = 'm'
+--         PERSON_ACTION_APPRECIATE_POST = 'n'
+--         PERSON_ACTION_ADD_POST = 'o'
+--         PERSON_ACTION_EDIT_POST = 'p'
+--         PERSON_ACTION_DELETE_POST = 'q'
+--         PERSON_ACTION_ADD_COMMENT = 'r'
+--         PERSON_ACTION_EDIT_COMMENT = 's'
+--         PERSON_ACTION_REMOVE_COMMENT = 't'
+--         PERSON_ACTION_ADD_TOPIC = 'u'
+--         PERSON_ACTION_EDIT_TOPIC = 'v'
+--         PERSON_ACTION_REMOVE_TOPIC = 'w'
+--
 -- TODO
 -- *. We may not be able to fully identify the logout timestamp.
 -- *. The format is incompatible with "add_category_to_topic" and
 --    "remove_topic_from_category". May need special case.
 
--- 2. Post/upvote map
---     type = list
+-- 2. Post/upvote set
+--     type = sorted_set
 --     name = "pu{post_visible_id}"
---     value = "{action_history_index}:{person_visible_id}:{t|f}"
--- 3. Post/upvote reverse map
---     type = hash
---     name = "pur{post_visible_id}"
---     key = "{person_visible_id}"
---     value = index of the upvote in post/upvote map
--- 4. Post/downvote map
---     type = list
+--     value = "{person_visible_id}"
+-- 3. Post/downvote set
+--     type = sorted_set
 --     name = "pd{post_visible_id}"
---     value = "{person_visible_id}:{t|f}"
--- 5. Post/downvote reverse map
---     type = hash
---     name = "pdr{post_visible_id}"
---     key = "{person_visible_id}"
---     value = index of the upvote in post/downvote map
-
--- NOTE
--- a. The {t|f} flag in maps are used to identify if a person has
---    cancelled the previous action. We keep only one slot for each
---    person to avoid a continuous upvote/unupvote/upvote/unupvote/...
---    action eats up all storage.
--- b. The reverse map is to quickly locate the slot that contains the
---    action.
--- c. The {action_history_index} is to quickly locate the action in
---    history, so when a person un-upvote a post, the previous upvote in
---    his action history can be hidden. Meanwhile, the downvote does not
---    have this because downvote is not shown in action history anyway.
-
--- 7. Person-follow-person list (latest to earlest)
---     type = list
+--     value = "{person_visible_id}"
+--
+-- 4. Person-follow-person list (latest to earlest)
+--     type = sorted_set
 --     name = "pfp{person_visible_id}"
---     value = "{to_person_visible_id}:{t|f}"
+--     value = "{to_person_visible_id}"
 
--- 8. Person-follow-topic list (latest to earlest)
---     type = list
---     name = "pfp{person_visible_id}"
---     value = "{to_topic_visible_id}:{t|f}"
+-- 5. Person-follow-topic list (latest to earlest)
+--     type = sorted_set
+--     name = "pft{person_visible_id}"
+--     value = "{to_topic_visible_id}"
 
 
--- 9. Person's timeline (from latest to earlest)
+-- 6. Person's timeline (from latest to earlest)
 --     type = list
 --     name = "pt{person_visible_id}"
 --     value = {timestamp}:{action_id}:{from_person_visible_id}:{to_target_visible_id}
@@ -152,12 +136,12 @@ CREATE TABLE ruuxee_topic_v1 (
 --                 pt{each_person_id}.insert_front(timestamp,
 --                                                 "k",11223344,22334455)
 
--- 10. Person's login/logout status
+-- 7. Person's login/logout status
 --     type = set
 --     name = "pls"
 --     value = "{person_visible_id}"
-
--- 11. Person's login session list
+--
+-- 8. Person's login session list
 --     type = set
 --     name = "pls{person_visible_id}"
 --     value = "{encrypted_session}:{expire_timestamp}:{source}:{platform}"

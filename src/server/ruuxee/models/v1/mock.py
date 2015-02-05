@@ -18,10 +18,6 @@ class Post(object):
 class Topic(object):
     pass
 
-class Comment(object):
-    pass
-
-
 class Database(object):
     cities = [ u"腾冲", u"嘉兴", u"雪乡", u"乌兰察布", u"通县", u"长湖镇" ]
     countries = [ u"天朝", u"Middle Earth", u"爱沙尼亚" ]
@@ -35,6 +31,7 @@ class Database(object):
     person_names = [
             {
                 "readable_id": u"bourne.zhu",
+                "status": model1.PERSON_STATUS_ACTIVATED,
                 "name": u"朱博文"
             },
             {
@@ -55,6 +52,7 @@ class Database(object):
             },
             {
                 "readable_id": u"fuzhou.chen",
+                "status": model1.PERSON_STATUS_ACTIVATED,
                 "name": u"陈甫鸼"
             },
             {
@@ -74,12 +72,15 @@ class Database(object):
     def __get_random_visible_id_str(self):
         return u"".join(random.choice(string.digits) for i in range(8))
 
+    @property
     def persons(self):
         return self.__persons
 
+    @property
     def posts(self):
         return self.__posts
 
+    @property
     def topics(self):
         return self.__topics
 
@@ -105,7 +106,7 @@ class Database(object):
             return found_objects
         return None
 
-    def __init__(self):
+    def __init__(self, cache):
         self.__persons = []
         self.__posts = []
         self.__topics = []
@@ -115,7 +116,10 @@ class Database(object):
             rand = self.__get_random_visible_id_str()
             p.visible_id = int(rand)
             p.anonymous_sha1 = hashlib.sha1(rand).hexdigest()
-            p.status = random.choice(model1.ALL_PERSON_STATUS)
+            if "status" in each_person:
+                p.status = each_person["status"]
+            else:
+                p.status = random.choice(model1.ALL_PERSON_STATUS)
             p.name = each_person["name"]
             p.readable_id = each_person["readable_id"]
             p.email = each_person["readable_id"] + "@ruuxee.com"
@@ -156,11 +160,73 @@ class Database(object):
             to.title = each_title
             to.description = random.choice(["如题", ""])
             self.__topics.append(to)
-        # all done.
+        # all done for fake database. Now create cache for persons.
+        for each_person in self.__persons:
+            model1.initialize_person_cache(cache, each_person.visible_id)
 
-class Redis(object):
-    "A fake Redis database object."
-    pass
+class MessageQueue(object):
+    def __init__(self):
+        self.__queue = []
+    @property
+    def queue(self):
+        return self.__queue
+
+    def push_queue(self, record):
+        self.__queue.insert(0, record)
+
+    def pop_queue(self):
+        # NOTE
+        # We don't check if set already exist and THIS IS AS EXPECTED.
+        # We expect all necessary tables are created when an entity was
+        # created. If there's any steps that does not do this job, it
+        # should crash here when running unit test with mock.
+        #
+        # In real environment the real Redis message queue should block
+        # here.
+        self.__queue.pop()
+
+class Cache(object):
+    def __init__(self):
+        self.__lists = {}
+        self.__tables = {}
+        self.__sets = {}
+
+    @property
+    def sets(self):
+        return self.__sets
+
+    @property
+    def tables(self):
+        return self._tables
+
+    @property
+    def lists(self):
+        return self.__lists
+
+    def insert_set(self, set_name, value):
+        # NOTE
+        # We don't check if set already exist and THIS IS AS EXPECTED.
+        # We expect all necessary tables are created when an entity was
+        # created. If there's any steps that does not do this job, it
+        # should crash here when running unit test with mock.
+        self.__sets[set_name].add(value)
+
+    def remove_set(self, set_name, value):
+        # NOTE
+        # We don't check if set already exist and THIS IS AS EXPECTED.
+        # We expect all necessary tables are created when an entity was
+        # created. If there's any steps that does not do this job, it
+        # should crash here when running unit test with mock.
+        self.__sets[set_name].remove(value)
+
+    def in_set(self, set_name, value):
+        return value in self.__sets[set_name]
+
+    def initialize_list(self, list_name):
+        self.__lists[list_name] = {}
+
+    def initialize_set(self, set_name):
+        self.__sets[set_name] = set()
 
 class AlwaysBourneZhuWebSession(object):
     """A fake WebSession that deal with login session.
@@ -170,7 +236,7 @@ class AlwaysBourneZhuWebSession(object):
     any logon session.
     """
     def __init__(self, database):
-        self.__database = database
+        self.__db = database
         pass
     def validate(self, request):
         # No matter what happen, always predict authentication success.
@@ -179,9 +245,9 @@ class AlwaysBourneZhuWebSession(object):
         return True
 
     def authenticated_person_visible_id(self):
-        return Database.person_names[0]["visible_id"]
+        return self.__db.persons[0].visible_id
     def authenticated_person_name(self):
-        return Database.person_names[0]["name"]
+        return self.__db.persons[0].name
 
 class AlwaysFalseWebSession(object):
     """A fake WebSession that always return login failure.

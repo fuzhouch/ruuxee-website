@@ -21,4 +21,5 @@ class TestMockDatabase(unittest.TestCase):
     def setUp(self):
         random.seed()
     def testCreateMockDb(self):
-        db = ruuxee.models.v1.mock.Database()
+        cache = ruuxee.models.v1.mock.Cache()
+        db = ruuxee.models.v1.mock.Database(cache)
