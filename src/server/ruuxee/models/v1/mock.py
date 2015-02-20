@@ -31,7 +31,7 @@ class Database(object):
     person_names = [
             {
                 "readable_id": u"bourne.zhu",
-                "status": model1.PERSON_STATUS_ACTIVATED,
+                "status": model1.STATUS_ACTIVATED,
                 "name": u"朱博文"
             },
             {
@@ -52,7 +52,7 @@ class Database(object):
             },
             {
                 "readable_id": u"fuzhou.chen",
-                "status": model1.PERSON_STATUS_ACTIVATED,
+                "status": model1.STATUS_ACTIVATED,
                 "name": u"陈甫鸼"
             },
             {

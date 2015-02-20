@@ -36,8 +36,8 @@ class TestApiReturnData(unittest.TestCase):
                 self.to_obj = each_person
             if each_person.readable_id == self.from_name:
                 self.from_obj = each_person
-        self.from_obj.status = model1.PERSON_STATUS_ACTIVATED
-        self.to_obj.status = model1.PERSON_STATUS_ACTIVATED
+        self.from_obj.status = model1.STATUS_ACTIVATED
+        self.to_obj.status = model1.STATUS_ACTIVATED
 
 
 
@@ -206,7 +206,7 @@ class TestApiReturnData(unittest.TestCase):
         # Case 4.1. Non-activated person can't be followed
         original_from_obj_status = self.from_obj.status
         original_to_obj_status = self.to_obj.status
-        self.from_obj.status = model1.PERSON_STATUS_ACTIVATED
+        self.from_obj.status = model1.STATUS_ACTIVATED
         with self.app.test_client() as c:
             for each_status in model1.PENDING_PERSON_STATUS:
                 self.to_obj.status = each_status
@@ -216,7 +216,7 @@ class TestApiReturnData(unittest.TestCase):
                 self.assertEqual(len(self.queue.queue), 0)
 
         # Case 4.2. Non-activated person can't follow anybody
-        self.to_obj.status = model1.PERSON_STATUS_ACTIVATED
+        self.to_obj.status = model1.STATUS_ACTIVATED
         with self.app.test_client() as c:
             for each_status in model1.PENDING_PERSON_STATUS:
                 self.from_obj.status = each_status
@@ -226,7 +226,7 @@ class TestApiReturnData(unittest.TestCase):
                 self.assertEqual(len(self.queue.queue), 0)
 
         # Case 4.3. A person can't follow himself/herself
-        self.from_obj.status = model1.PERSON_STATUS_ACTIVATED
+        self.from_obj.status = model1.STATUS_ACTIVATED
         with self.app.test_client() as c:
             resp = c.post('%s/%s' % (path, self.from_id))
             self.assertEqual(resp.status_code,
@@ -284,8 +284,8 @@ class TestApiReturnData(unittest.TestCase):
 
         # Case 5: Repeated following will return OK but no additional
         # request added to message queue.
-        self.from_obj.status = model1.PERSON_STATUS_ACTIVATED
-        self.to_obj.status = model1.PERSON_STATUS_ACTIVATED
+        self.from_obj.status = model1.STATUS_ACTIVATED
+        self.to_obj.status = model1.STATUS_ACTIVATED
         table = model1.TableNameGenerator.person_follow_person(self.from_id)
         self.cache.insert_set(table, str(self.to_id))
         with self.app.test_client() as c:
@@ -321,8 +321,8 @@ class TestApiReturnData(unittest.TestCase):
         original_from_obj_status = self.from_obj.status
         original_to_obj_status = self.to_obj.status
         # Case 3
-        self.from_obj.status = model1.PERSON_STATUS_ACTIVATED
-        self.to_obj.status = model1.PERSON_STATUS_ACTIVATED
+        self.from_obj.status = model1.STATUS_ACTIVATED
+        self.to_obj.status = model1.STATUS_ACTIVATED
         table = model1.TableNameGenerator.person_follow_person(self.from_id)
         self.cache.insert_set(table, str(self.to_id))
         with self.app.test_client() as c:

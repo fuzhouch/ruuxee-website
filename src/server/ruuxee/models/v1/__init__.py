@@ -8,11 +8,11 @@ import logging
 import re
 import flask
 
-PERSON_STATUS_REVIEWING  = 1
-PERSON_STATUS_ACTIVATED  = 2
-PERSON_STATUS_SUSPENDED  = 3
-PERSON_STATUS_REVOKED    = 4
-PERSON_STATUS_DELETED    = 5
+STATUS_REVIEWING  = 1
+STATUS_ACTIVATED  = 2
+STATUS_SUSPENDED  = 3
+STATUS_REVOKED    = 4
+STATUS_DELETED    = 5
 
 POST_STATUS_POSTED = 1
 POST_STATUS_REVIWING = 2
@@ -43,16 +43,16 @@ ACTION_EDIT_TOPIC = 'v'
 ACTION_REMOVE_TOPIC = 'w'
 
 ALL_PERSON_STATUS = [
-        PERSON_STATUS_REVIEWING,
-        PERSON_STATUS_ACTIVATED,
-        PERSON_STATUS_SUSPENDED,
-        PERSON_STATUS_REVOKED,
-        PERSON_STATUS_DELETED ]
+        STATUS_REVIEWING,
+        STATUS_ACTIVATED,
+        STATUS_SUSPENDED,
+        STATUS_REVOKED,
+        STATUS_DELETED ]
 
 PENDING_PERSON_STATUS = [
-        PERSON_STATUS_REVIEWING,
-        PERSON_STATUS_SUSPENDED,
-        PERSON_STATUS_REVOKED ]
+        STATUS_REVIEWING,
+        STATUS_SUSPENDED,
+        STATUS_REVOKED ]
 
 ALL_POST_STATUS = [
         POST_STATUS_POSTED,
@@ -115,7 +115,7 @@ class DataAccess(utils.Logging):
         This function returns different HTTP codes on different account
         types:
             BAD_REQUESET for invalid user ID
-            METHOD_NOT_ALLOWED for
+            METHOD_NOT_ALLOWED for non-activated ID
         """
         fields = ["status"]
         try:
@@ -128,7 +128,7 @@ class DataAccess(utils.Logging):
         status = data[0]["status"]
         if status in PENDING_PERSON_STATUS: # Suspended user
             return ruuxee.httplib.METHOD_NOT_ALLOWED
-        if status == PERSON_STATUS_DELETED: # Deleted user
+        if status == STATUS_DELETED: # Deleted user
             return ruuxee.httplib.NOT_FOUND
         return ruuxee.httplib.OK
 
