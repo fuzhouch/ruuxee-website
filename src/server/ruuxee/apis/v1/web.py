@@ -1,7 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright @2015 by ruuxee.com, All rights reserved.
-"This module defines Ruuxee's web v1 API."
+"""
+This module defines Ruuxee's web v1 API. The whole feature is
+implemented as a Flask Blueprint.
+
+Following Flask coding practice, it exposes one global object, page,
+which is the main entry point of all features.
+
+The Blueprint is configurable via ruuxee.Application. The main interface
+is available in two helper functions in ruuxee.Appliaction:
+
+    >>> ruuxee.Application.current_session_manager()
+    >>> ruuxee.Application.current_core()
+
+So the API can actually be configured to behave like a web API or
+mobile app API, if the application is properly configured with different
+Core and SessionManager.
+"""
 import ruuxee
 import flask
 import functools
