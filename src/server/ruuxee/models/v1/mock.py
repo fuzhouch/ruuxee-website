@@ -113,9 +113,8 @@ class Database(object):
         # Create random data
         for each_person in Database.person_names:
             p = Person()
-            rand = self.__get_random_visible_id_str()
-            p.visible_id = int(rand)
-            p.anonymous_sha1 = hashlib.sha1(rand).hexdigest()
+            p.visible_id = self.__get_random_visible_id_str()
+            p.anonymous_sha1 = hashlib.sha1(p.visible_id).hexdigest()
             if "status" in each_person:
                 p.status = each_person["status"]
             else:
@@ -123,7 +122,7 @@ class Database(object):
             p.name = each_person["name"]
             p.readable_id = each_person["readable_id"]
             p.email = each_person["readable_id"] + "@ruuxee.com"
-            p.password = rand + p.readable_id
+            p.password = p.visible_id + p.readable_id
             p.password_sha1 = hashlib.sha1(p.password).hexdigest()
             p.signup_timestamp = \
                     time.time() + random.randint(100000, 500000)
@@ -136,8 +135,7 @@ class Database(object):
             self.__persons.append(p)
         for i in range(100, random.randint(100, 200)):
             po = Post()
-            rand = self.__get_random_visible_id_str()
-            po.visible_id = int(rand)
+            po.visible_id = self.__get_random_visible_id_str()
             po.status = random.choice(model1.ALL_POST_STATUS)
             po.is_anonymous = random.choice([True, False])
             author = random.choice(self.__persons)
@@ -155,14 +153,20 @@ class Database(object):
 
         for each_title in Database.topic_titles:
             to = Topic()
-            rand = self.__get_random_visible_id_str()
-            to.visible_id = int(rand)
+            to.visible_id = self.__get_random_visible_id_str()
             to.title = each_title
             to.description = random.choice(["如题", ""])
             self.__topics.append(to)
         # all done for fake database. Now create cache for persons.
         for each_person in self.__persons:
             model1.initialize_person_cache(cache, each_person.visible_id)
+        for each_post in self.__posts:
+            model1.initialize_post_cache(cache, each_post.visible_id)
+
+        # Let's always set author of first post as bourne.zhu for test
+        # purposes.
+        target_id = self.__persons[0].visible_id
+        self.__posts[0].author_visible_id = target_id
 
 class MessageQueue(object):
     def __init__(self):
@@ -222,8 +226,14 @@ class Cache(object):
     def in_set(self, set_name, value):
         return value in self.__sets[set_name]
 
+    def append_list(self, list_name, value):
+        self.__lists[list_name].append(value)
+
+    def remove_list(self, list_name, value):
+        self.__lists[list_name].remove(value)
+
     def initialize_list(self, list_name):
-        self.__lists[list_name] = {}
+        self.__lists[list_name] = []
 
     def initialize_set(self, set_name):
         self.__sets[set_name] = set()

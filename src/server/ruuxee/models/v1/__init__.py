@@ -14,10 +14,6 @@ STATUS_SUSPENDED  = 3
 STATUS_REVOKED    = 4
 STATUS_DELETED    = 5
 
-POST_STATUS_POSTED = 1
-POST_STATUS_REVIWING = 2
-POST_STATUS_DELETED = 3
-
 ACTION_CREATE_ACCOUNT = 'a'
 ACTION_DELETE_ACCOUNT = 'b'
 ACTION_UPDATE_ACCOUNT_INFO = 'c'
@@ -28,19 +24,17 @@ ACTION_UNFOLLOW_PERSON = 'g'
 ACTION_FOLLOW_TOPIC = 'h'
 ACTION_UNFOLLOW_TOPIC = 'i'
 ACTION_UPVOTE_POST = 'j'
-ACTION_UNUPVOTE_POST = 'k'
+ACTION_NEUTRALIZE_POST = 'k'
 ACTION_DOWNVOTE_POST = 'l'
-ACTION_UNDOWNVOTE_POST = 'm'
-ACTION_APPRECIATE_POST = 'n'
-ACTION_ADD_POST = 'o'
-ACTION_EDIT_POST = 'p'
-ACTION_DELETE_POST = 'q'
-ACTION_ADD_COMMENT = 'r'
-ACTION_EDIT_COMMENT = 's'
-ACTION_REMOVE_COMMENT = 't'
-ACTION_ADD_TOPIC = 'u'
-ACTION_EDIT_TOPIC = 'v'
-ACTION_REMOVE_TOPIC = 'w'
+ACTION_ADD_POST = 'm'
+ACTION_EDIT_POST = 'n'
+ACTION_DELETE_POST = 'o'
+ACTION_ADD_COMMENT = 'p'
+ACTION_EDIT_COMMENT = 'q'
+ACTION_REMOVE_COMMENT = 'r'
+ACTION_ADD_TOPIC = 's'
+ACTION_EDIT_TOPIC = 't'
+ACTION_REMOVE_TOPIC = 'u'
 
 ALL_PERSON_STATUS = [
         STATUS_REVIEWING,
@@ -49,16 +43,16 @@ ALL_PERSON_STATUS = [
         STATUS_REVOKED,
         STATUS_DELETED ]
 
-PENDING_PERSON_STATUS = [
+PENDING_STATUS = [
         STATUS_REVIEWING,
         STATUS_SUSPENDED,
         STATUS_REVOKED ]
 
 ALL_POST_STATUS = [
-        POST_STATUS_POSTED,
-        POST_STATUS_REVIWING,
-        POST_STATUS_DELETED
-]
+        STATUS_REVIEWING,
+        STATUS_ACTIVATED,
+        STATUS_SUSPENDED,
+        STATUS_DELETED ]
 
 TABLE_NAME_PERSON_ACTIONS           = "pa"
 TABLE_NAME_PERSON_FOLLOW_PERSON     = "pfp"
@@ -74,15 +68,33 @@ MESSAGE_QUEUE_STOP_SIGN = '{EOQ}'
 ANONYMOUS_PERSON_NAME = u"匿名用户"
 REVIEWING_TITLE = u"审核中"
 REVIEWING_TEXT = u"该文章正在被审核..."
+SUSPENDED_TITLE = u"违反管理条例"
+SUSPENDED_TEXT = u"该文章因违反管理条例被要求去除..."
 
 class TableNameGenerator(object):
+    @staticmethod
+    def person_action(visible_id):
+        return "%s%s" % (TABLE_NAME_PERSON_ACTIONS, str(visible_id))
+
+    @staticmethod
+    def person_timeline(visible_id):
+        return "%s%s" % (TABLE_NAME_PERSON_TIMELINE, str(visible_id))
+
+    @staticmethod
+    def person_follow_topic(visible_id):
+        return "%s%s" % (TABLE_NAME_PERSON_FOLLOW_TOPIC, str(visible_id))
+
     @staticmethod
     def person_follow_person(visible_id):
         return "%s%s" % (TABLE_NAME_PERSON_FOLLOW_PERSON, str(visible_id))
 
     @staticmethod
-    def person_timeline(visible_id):
-        return "%s%s" % (TABLE_NAME_PERSON_TIMELINE, str(visible_id))
+    def post_upvote(visible_id):
+        return "%s%s" % (TABLE_NAME_POST_UPVOTE, str(visible_id))
+
+    @staticmethod
+    def post_downvote(visible_id):
+        return "%s%s" % (TABLE_NAME_POST_DOWNVOTE, str(visible_id))
 
 class Core(utils.Logging):
     "The main module to provide Apis for web handler."
@@ -104,6 +116,23 @@ class Core(utils.Logging):
     def queue(self):
         return self.__queue
 
+    def is_actionable_post(self, post_visible_id):
+        """
+        def is_actionable_post(self, post_visible_id) -> HTTP code
+
+        Check if a post can be followed or voted. A post
+        under reviewing, or suspended, or revoked, or deleted,
+        can't take action.
+
+        This function returns different HTTP codes on different account
+        types:
+            BAD_REQUESET for invalid user ID
+            METHOD_NOT_ALLOWED for non-activated ID
+            OK for success
+        """
+        query = self.__db.query_post
+        return self.__is_actionable(post_visible_id, query)
+
     def is_actionable_person(self, person_visible_id):
         """
         def is_actionable_person(self, person_visible_id) -> HTTP code
@@ -118,33 +147,18 @@ class Core(utils.Logging):
             METHOD_NOT_ALLOWED for non-activated ID
             OK for success
         """
-        fields = ["status"]
-        try:
-            check_id = int(person_visible_id)
-            data = self.__db.query_person('visible_id', check_id, fields)
-        except Exception: # Invalid visible ID
-            return ruuxee.httplib.BAD_REQUEST
-        if data is None or len(data) == 0: # ID not found
-            return ruuxee.httplib.NOT_FOUND
-        status = data[0]["status"]
-        if status in PENDING_PERSON_STATUS: # Suspended user
-            return ruuxee.httplib.METHOD_NOT_ALLOWED
-        if status == STATUS_DELETED: # Deleted user
-            return ruuxee.httplib.NOT_FOUND
-        return ruuxee.httplib.OK
-
+        query = self.__db.query_person
+        return self.__is_actionable(person_visible_id, query)
 
     def get_person_brief(self, person_id):
         # TODO
         # Brief information contains only the following fields. They are
         # supposed to be used in hovering popup window.
         fields = ["name", "visible_id", "readable_id", "company"]
-        data = None
-        try:
-            check_id = int(person_id)
-            data = self.__db.query_person('visible_id', check_id, fields)
-        except Exception: # Invalid visible ID, try user ID again.
+        data = self.__db.query_person('visible_id', person_id, fields)
+        if data is None:
             data = self.__db.query_person('readable_id', person_id, fields)
+
         if data is not None:
             return data[0]
         else:
@@ -169,21 +183,52 @@ class Core(utils.Logging):
         current = str(current_person_id)
         target = str(follow_person_id)
         if current == target:
-            return { "status_code": ruuxee.httplib.METHOD_NOT_ALLOWED }
+            return self.__response(ruuxee.httplib.METHOD_NOT_ALLOWED)
 
         status = self.is_actionable_person(current)
         if status != ruuxee.httplib.OK:
-            return { "status_code": status }
+            return self.__response(status)
 
         status = self.is_actionable_person(target)
         if status != ruuxee.httplib.OK:
-            return { "status_code": status }
+            return self.__response(status)
 
-        table_name = TableNameGenerator.person_follow_person(current)
-        if self.__cache.in_set(table_name, target):
-            # Already followed, do nothing.
-            return { "status_code": ruuxee.httplib.OK }
-
+        # NOTE
+        # It's very difficult to reject a temptation here, that we may
+        # want to introduce a potential "optimization" to avoid
+        # duplicated status updating, by checking whether
+        # the follow/unfollow relationship is already there (see below): 
+        #
+        # table_name = TableNameGenerator.person_follow_person(current)
+        # if self.__cache.in_set(table_name, target):
+        #    # Already followed, do nothing.
+        #    return self.__response()
+        #
+        # However, this can be a bad idea when we have multiple clients
+        # sending commands. Think about scenario below:
+        #
+        #     0. Initial status is Follow.
+        #     1. A mobile app sends an Unfollow command and is pushed
+        #        into Worker queue.
+        #     2. A web app sends a Follow command and start checking
+        #        status in Core.
+        #     4. Core finds the current status is still Follow, so it
+        #        cancels the Follow command from #2. So after the final
+        #        status the final status becomes Unfollow.
+        #
+        # The step above is not correct because it silently ignore the
+        # later command. And there's no way to avoid this, unless we add
+        # a big lock on check+push commands in both Core and Worker,
+        # which may cause performance issue.
+        #
+        # So the correct way is to let both in queue and get processed.
+        #
+        # There's another concern here, that bad guys may want to use
+        # this to attack of queue, by repeatly sending
+        # Follow/Unfollow/Follow commands. I admit it's possible, but I
+        # will leave this to Nginx by limiting the RPS (requests per
+        # second) from same IP.
+        #
         self.log_info("Effective: follow %s %s" % (current, target))
 
         action = ACTION_FOLLOW_PERSON
@@ -201,20 +246,15 @@ class Core(utils.Logging):
         current = str(current_person_id)
         target = str(unfollow_person_id)
         if current == target:
-            return { "status_code": ruuxee.httplib.METHOD_NOT_ALLOWED }
+            return self.__response(ruuxee.httplib.METHOD_NOT_ALLOWED)
 
         status = self.is_actionable_person(current)
         if status != ruuxee.httplib.OK:
-            return { "status_code": status }
+            return self.__response(status)
 
         status = self.is_actionable_person(target)
         if status != ruuxee.httplib.OK:
-            return { "status_code": status }
-
-        table_name = TableNameGenerator.person_follow_person(current)
-        if not self.__cache.in_set(table_name, target):
-            # Already unfollowed, do nothing.
-            return { "status_code": ruuxee.httplib.OK }
+            return self.__response(status)
 
         self.log_info("Effective: unfollow %s %s" % (current, target))
 
@@ -222,14 +262,129 @@ class Core(utils.Logging):
         addition = ""
         return self.__post_message(action, current, target, addition)
 
+    @utils.Logging.enter_leave
+    def upvote_post(self, current_person_id, target_post_id):
+        """
+        def upvote_post(self, current_person_id, target_post_id)
+
+        Make one person upvote a post. The person and post must be both
+        actionable.
+        """
+        current = str(current_person_id)
+        target = str(target_post_id)
+
+        status = self.is_actionable_person(current)
+        if status != ruuxee.httplib.OK:
+            return self.__response(status)
+
+        status = self.is_actionable_post(target)
+        if status != ruuxee.httplib.OK:
+            return self.__response(status)
+
+        status = self.__is_post_written_by(target, current)
+        if status == ruuxee.httplib.OK:
+            return self.__response(ruuxee.httplib.METHOD_NOT_ALLOWED)
+
+        self.log_info("Effective: upvote %s %s" % (current, target))
+
+        action = ACTION_UPVOTE_POST
+        addition = ""
+        return self.__post_message(action, current, target, addition)
+
+    @utils.Logging.enter_leave
+    def downvote_post(self, current_person_id, target_post_id):
+        """
+        def downvote_post(self, current_person_id, target_post_id)
+
+        Make one person downvote a post. The person and post must be
+        both actionable.
+        """
+        current = str(current_person_id)
+        target = str(target_post_id)
+
+        status = self.is_actionable_person(current)
+        if status != ruuxee.httplib.OK:
+            return self.__response(status)
+
+        status = self.is_actionable_post(target)
+        if status != ruuxee.httplib.OK:
+            return self.__response(status)
+
+        status = self.__is_post_written_by(target, current)
+        if status == ruuxee.httplib.OK:
+            return self.__response(ruuxee.httplib.METHOD_NOT_ALLOWED)
+
+        self.log_info("Effective: upvote %s %s" % (current, target))
+
+        action = ACTION_DOWNVOTE_POST
+        addition = ""
+        return self.__post_message(action, current, target, addition)
+
+    def neutralize_post(self, current_person_id, target_post_id):
+        """
+        def neutralize_post(self, current_person_id, target_post_id)
+
+        Make one person neutralize a post (neither upvote or downvote).
+        The person and post must be both actionable.
+        """
+        current = str(current_person_id)
+        target = str(target_post_id)
+
+        status = self.is_actionable_person(current)
+        if status != ruuxee.httplib.OK:
+            return self.__response(status)
+
+        status = self.is_actionable_post(target)
+        if status != ruuxee.httplib.OK:
+            return self.__response(status)
+
+        status = self.__is_post_written_by(target, current)
+        if status == ruuxee.httplib.OK:
+            return self.__response(ruuxee.httplib.METHOD_NOT_ALLOWED)
+
+        self.log_info("Effective: neutralize %s %s" % (current, target))
+
+        action = ACTION_NEUTRALIZE_POST
+        addition = ""
+        return self.__post_message(action, current, target, addition)
+
+    def __is_post_written_by(self, post_id, person_id):
+        fields = ["author_visible_id"]
+        try:
+            data = self.__db.query_post("visible_id", post_id, fields)
+        except Exception: # Invalid visible ID
+            return ruuxee.httplib.BAD_REQUEST
+        if data is None or len(data) == 0: # ID not found
+            return ruuxee.httplib.NOT_FOUND
+        author = data[0]["author_visible_id"]
+        if author == person_id:
+            return ruuxee.httplib.OK
+        return ruuxee.httplib.METHOD_NOT_ALLOWED
+
+    def __is_actionable(self, visible_id, query_func):
+        fields = ["status"]
+        try:
+            data = query_func('visible_id', visible_id, fields)
+        except Exception: # Invalid visible ID
+            return ruuxee.httplib.BAD_REQUEST
+        if data is None or len(data) == 0: # ID not found
+            return ruuxee.httplib.NOT_FOUND
+        status = data[0]["status"]
+        if status in PENDING_STATUS: # Suspended user
+            return ruuxee.httplib.METHOD_NOT_ALLOWED
+        if status == STATUS_DELETED: # Deleted user
+            return ruuxee.httplib.NOT_FOUND
+        return ruuxee.httplib.OK
+
+    @staticmethod
+    def __response(status = ruuxee.httplib.OK):
+        return { "status_code" : status }
+
     def __post_message(self, action, source, target, addition):
         ts = utils.stimestamp()
-        sts = str(ts)
-        ssource = str(source)
-        starget = str(target)
-        record = ":".join([ sts, action, ssource, starget, addition ])
+        record = "%d:%s:%s:%s:%s" % (ts, action, source, target, addition)
         self.__queue.push_queue(record)
-        return {} # Post message does not return specific information.
+        return self.__response()
 
     # --------------------------------------------------------------
     # Internal functions below
@@ -239,7 +394,7 @@ class Core(utils.Logging):
         if data["is_anonymous"]:
             author_name = ANONYMOUS_PERSON_NAME
         else:
-            author_id = int(data["author_visible_id"])
+            author_id = data["author_visible_id"]
             found_person = self.__db.query_person('visible_id', \
                                                   author_id, \
                                                   ['name'])
@@ -255,29 +410,33 @@ class Core(utils.Logging):
         if full:
             fields += [ "written_timestamp", "content_html" ]
         data = None
-        try:
-            check_id = int(post_visible_id)
-        except Exception: # Invalid visible ID, try user ID again.
-            return None
-        result = self.__db.query_post('visible_id', check_id, fields)
+        result = self.__db.query_post('visible_id', post_visible_id, fields)
         if result is not None:
             single = result[0]
-            if single["status"] == POST_STATUS_REVIWING:
-                author_id = int(single["author_visible_id"])
+            if single["status"] == STATUS_REVIEWING:
+                author_id = single["author_visible_id"]
                 author_name = self.__get_author_name(single)
-                data = { "status": POST_STATUS_REVIWING, \
+                data = { "status": STATUS_REVIEWING, \
                          "is_anonymous": single["is_anonymous"], \
                          "author_name": author_name, \
                          "title": REVIEWING_TITLE, \
                          "brief_text": REVIEWING_TEXT }
-            elif single["status"] == POST_STATUS_DELETED:
-                data = { "status": POST_STATUS_DELETED }
+            elif single["status"] == STATUS_SUSPENDED:
+                author_id = single["author_visible_id"]
+                author_name = self.__get_author_name(single)
+                data = { "status": STATUS_SUSPENDED, \
+                         "is_anonymous": single["is_anonymous"], \
+                         "author_name": author_name, \
+                         "title": SUSPENDED_TITLE, \
+                         "brief_text": SUSPENDED_TEXT }
+            elif single["status"] == STATUS_DELETED:
+                data = { "status": STATUS_DELETED }
                 return data
             else:
                 # Good, a posted article, now adjust other info
                 # based on information.
                 author_name = self.__get_author_name(single)
-                data = { "status": POST_STATUS_POSTED, \
+                data = { "status": STATUS_ACTIVATED, \
                          "is_anonymous": single["is_anonymous"], \
                          "author_name": author_name, \
                          "title": single["title"], \
@@ -393,17 +552,27 @@ class RequestWorker(utils.Logging):
 @utils.Logging.enter_leave
 def initialize_person_cache(cache, visible_id):
     """
-    def create_person_cache(cache, visible_id)
-    Create cache for a specified user. Used when creating a 
+    def initialize_person_cache(cache, visible_id)
+    Create cache for a specified user. Used when creating a new user
+    account.
     """
-    logging.info("create_person_cache: %s" % visible_id)
-    vid = str(visible_id)
-    action_history = "%s%s" % (TABLE_NAME_PERSON_ACTIONS, vid)
-    timeline = "%s%s" % (TABLE_NAME_PERSON_TIMELINE, vid)
-    followers = "%s%s" % (TABLE_NAME_PERSON_FOLLOW_PERSON, vid)
-    topics = "%s%s" % (TABLE_NAME_PERSON_FOLLOW_TOPIC, vid)
+    logging.info("initialize_person_cache: %s" % visible_id)
+    action_history = TableNameGenerator.person_action(visible_id)
+    timeline = TableNameGenerator.person_timeline(visible_id)
+    followers = TableNameGenerator.person_follow_person(visible_id)
+    topics = TableNameGenerator.person_follow_topic(visible_id)
     cache.initialize_list(action_history)
     cache.initialize_list(timeline)
     cache.initialize_set(followers)
-    logging.info("create_person_cache: %s done" % visible_id)
 
+@utils.Logging.enter_leave
+def initialize_post_cache(cache, visible_id):
+    """
+    def initialize_post_cache(cache, visible_id)
+    Create cache for a specific user, Used when creating a new post.
+    """
+    logging.info("initialize_post_cache: %s" % visible_id)
+    upvotes = TableNameGenerator.post_upvote(visible_id)
+    downvotes = TableNameGenerator.post_downvote(visible_id)
+    cache.initialize_list(upvotes)
+    cache.initialize_list(downvotes)

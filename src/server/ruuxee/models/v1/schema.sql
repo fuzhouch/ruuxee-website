@@ -12,7 +12,7 @@
 
 CREATE TABLE ruuxee_person_v1 (
     id INT NOT NULL AUTO_INCREMENT, -- Internal ID, used only in database
-    visible_id INT,                 -- Visible ID, used in public webpage
+    visible_id CHAR(16),            -- Visible ID, used in public webpage
     anonymous_sha1 CHAR(40),        -- Used internally for anonymous post
     status INT,                     -- multiple user status (see below)
     name VARCHAR(80),               -- User name, like "Fuzhou Chen"
@@ -40,7 +40,7 @@ CREATE TABLE ruuxee_person_v1 (
 
 CREATE TABLE ruuxee_post_v1 (
     id INT NOT NULL AUTO_INCREMENT, -- Internal ID, used only in database
-    visible_id INT,                 -- Visible ID, used in public webpage
+    visible_id CHAR(16),            -- Visible ID, used in public webpage
     status INT,                     -- Status of this post (see below)
     is_anonymous BOOLEAN,           -- Check if the post is boolean
     author_visible_id INT,          -- The user who writes the post
@@ -52,13 +52,14 @@ CREATE TABLE ruuxee_post_v1 (
 )
 
 -- Enumerated post status
---     Posted    = 1 = Posted to public
+--     Activated = 1 = Posted to public
 --     Reviewing = 2 = Pending for review. Not visible in web site.
---     Deleted   = 3 = Deleted. Not visible to public.
+--     Suspended = 3 = Posted but put back for administrative reason.
+--     Deleted   = 4 = Deleted. Not visible to public.
 
 CREATE TABLE ruuxee_topic_v1 (
     id INT NOT NULL AUTO_INCREMENT, -- Internal ID, used only in database
-    visible_id INT,                 -- Visible ID, used in public webpage
+    visible_id CHAR(16),            -- Visible ID, used in public webpage
     title VARCHAR(192),             -- 64 utf-8 Chinese characters
     description VARCHAR(768)        -- 256 utf-8 Chinese characters.
 )
@@ -84,41 +85,39 @@ CREATE TABLE ruuxee_topic_v1 (
 --         PERSON_ACTION_FOLLOW_TOPIC = 'h'
 --         PERSON_ACTION_UNFOLLOW_TOPIC = 'i'
 --         PERSON_ACTION_UPVOTE_POST = 'j'
---         PERSON_ACTION_UNUPVOTE_POST = 'k'
+--         PERSON_ACTION_NEUTRALIZE_POST = 'k'
 --         PERSON_ACTION_DOWNVOTE_POST = 'l'
---         PERSON_ACTION_UNDOWNVOTE_POST = 'm'
---         PERSON_ACTION_APPRECIATE_POST = 'n'
---         PERSON_ACTION_ADD_POST = 'o'
---         PERSON_ACTION_EDIT_POST = 'p'
---         PERSON_ACTION_DELETE_POST = 'q'
---         PERSON_ACTION_ADD_COMMENT = 'r'
---         PERSON_ACTION_EDIT_COMMENT = 's'
---         PERSON_ACTION_REMOVE_COMMENT = 't'
---         PERSON_ACTION_ADD_TOPIC = 'u'
---         PERSON_ACTION_EDIT_TOPIC = 'v'
---         PERSON_ACTION_REMOVE_TOPIC = 'w'
+--         PERSON_ACTION_ADD_POST = 'm'
+--         PERSON_ACTION_EDIT_POST = 'n'
+--         PERSON_ACTION_DELETE_POST = 'o'
+--         PERSON_ACTION_ADD_COMMENT = 'p'
+--         PERSON_ACTION_EDIT_COMMENT = 'q'
+--         PERSON_ACTION_REMOVE_COMMENT = 'r'
+--         PERSON_ACTION_ADD_TOPIC = 's'
+--         PERSON_ACTION_EDIT_TOPIC = 't'
+--         PERSON_ACTION_REMOVE_TOPIC = 'u'
 --
 -- TODO
 -- *. We may not be able to fully identify the logout timestamp.
 -- *. The format is incompatible with "add_category_to_topic" and
 --    "remove_topic_from_category". May need special case.
 
--- 2. Post/upvote set
---     type = sorted_set
---     name = "pu{post_visible_id}"
+-- 2. Person-upvote-post set
+--     type = list
+--     name = "pup{post_visible_id}"
 --     value = "{person_visible_id}"
--- 3. Post/downvote set
---     type = sorted_set
---     name = "pd{post_visible_id}"
+-- 3. Person-downvote-post set
+--     type = list
+--     name = "pdp{post_visible_id}"
 --     value = "{person_visible_id}"
 --
 -- 4. Person-follow-person list (latest to earlest)
---     type = sorted_set
+--     type = set
 --     name = "pfp{person_visible_id}"
 --     value = "{to_person_visible_id}"
 
 -- 5. Person-follow-topic list (latest to earlest)
---     type = sorted_set
+--     type = set
 --     name = "pft{person_visible_id}"
 --     value = "{to_topic_visible_id}"
 
@@ -195,14 +194,16 @@ CREATE TABLE ruuxee_topic_v1 (
 
 --    GET http://www.ruuxee.com/api/web/v1/post/<post_visible_id>
 --    GET http://www.ruuxee.com/api/web/v1/post-brief/<post_visible_id>
---    POST http://www.ruuxee.com/api/web/v1/follow/topic/<topic_visible_id>
 --    POST http://www.ruuxee.com/api/web/v1/follow/person/<person_visible_id>
 --    POST http://www.ruuxee.com/api/web/v1/unfollow/person/<person_visible_id>
+--
+--    POST http://www.ruuxee.com/api/web/v1/follow/topic/<topic_visible_id>
 --    POST http://www.ruuxee.com/api/web/v1/unfollow/topic/<topic_visible_id>
+--
 --    POST http://www.ruuxee.com/api/web/v1/upvote/post/<post_visible_id>
---    POST http://www.ruuxee.com/api/web/v1/unupvote/post/<post_visible_id>
 --    POST http://www.ruuxee.com/api/web/v1/downvote/post/<post_visible_id>
---    POST http://www.ruuxee.com/api/web/v1/undownvote/post/<post_visible_id>
+--    POST http://www.ruuxee.com/api/web/v1/neutral/post/<post_visible_id>
+--
 --    POST http://www.ruuxee.com/api/web/v1/edit/vote/<post_visible_id>
 --    POST http://www.ruuxee.com/api/web/v1/delete/post/<post_visible_id>
 --    PUT http://www.ruuxee.com/api/web/v1/add/post/topic/<post_visible_id>

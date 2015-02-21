@@ -149,7 +149,6 @@ def unfollow_person(unfollow_person_id):
     resp = core.unfollow_person(this_person_id, unfollow_person_id)
     return make_json_response(resp)
 
-
 @page.route('/upvote/post/<post_visible_id>', methods=['POST'])
 @signin_required
 def upvote_post(post_visible_id):
@@ -158,17 +157,10 @@ def upvote_post(post_visible_id):
     Make current person upvote a post, specified by visible ID.
     """
     core = ruuxee.Application.current_core()
-    return make_json_response(core.upvote_post(post_visible_id))
-
-@page.route('/unupvote/post/<post_visible_id>', methods=['POST'])
-@signin_required
-def unupvote_post(post_visible_id):
-    """def unupvote_post(post_visible_id): -> Json
-
-    Make current person un-upvote a post, specified by visible ID.
-    """
-    core = ruuxee.Application.current_core()
-    return make_json_response(core.unupvote_post(post_visible_id))
+    session = ruuxee.Application.current_session_manager()
+    this_person_id = session.authenticated_person_visible_id()
+    resp = core.upvote_post(this_person_id, post_visible_id)
+    return make_json_response(resp)
 
 @page.route('/downvote/post/<post_visible_id>', methods=['POST'])
 @signin_required
@@ -178,17 +170,23 @@ def downvote_post(post_visible_id):
     Make current person downvote a post, specified by visible ID.
     """
     core = ruuxee.Application.current_core()
-    return make_json_response(core.downvote_post(post_visible_id))
+    session = ruuxee.Application.current_session_manager()
+    this_person_id = session.authenticated_person_visible_id()
+    resp = core.downvote_post(this_person_id, post_visible_id)
+    return make_json_response(resp)
 
-@page.route('/undownvote/post/<post_visible_id>', methods=['POST'])
+@page.route('/neutralize/post/<post_visible_id>', methods=['POST'])
 @signin_required
-def undownvote_post(post_visible_id):
-    """def undownvote_post(post_visible_id): -> Json
+def neutralize_post(post_visible_id):
+    """def neutralize_post(post_visible_id): -> Json
 
-    Make current person downvote a post, specified by visible ID.
+    Make current person neutralize a post, specified by visible ID.
     """
     core = ruuxee.Application.current_core()
-    return make_json_response(core.undownvote_post(post_visible_id))
+    session = ruuxee.Application.current_session_manager()
+    this_person_id = session.authenticated_person_visible_id()
+    resp = core.neutralize_post(this_person_id, post_visible_id)
+    return make_json_response(resp)
 
 @page.route('/add/post/topic/<topic_visible_id>', methods=['PUT'])
 @signin_required
