@@ -84,8 +84,8 @@ class TableNameGenerator(object):
     def person_timeline(visible_id):
         return "%s%s" % (TABLE_NAME_PERSON_TIMELINE, str(visible_id))
 
-class DataAccess(utils.Logging):
-    "This is the main module to provide Api for web handler."
+class Core(utils.Logging):
+    "The main module to provide Apis for web handler."
     def __init__(self, database, cache, queue):
         self.__db = database
         self.__cache = cache
@@ -116,6 +116,7 @@ class DataAccess(utils.Logging):
         types:
             BAD_REQUESET for invalid user ID
             METHOD_NOT_ALLOWED for non-activated ID
+            OK for success
         """
         fields = ["status"]
         try:

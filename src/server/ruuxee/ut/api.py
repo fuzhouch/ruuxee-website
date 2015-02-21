@@ -47,10 +47,10 @@ class TestApiReturnData(unittest.TestCase):
     def test_get_person_brief(self):
         with self.app.test_client() as c:
             path = '/apis/web/v1/person-brief'
-            dataaccess = self.app.config["RUUXEE_DATA_ACCESS"]
+            core = self.app.config["RUUXEE_CORE"]
             # Only for fake objects we can get list of persons.
             # Production database may not expose db property.
-            for each_person in dataaccess.db.persons:
+            for each_person in core.db.persons:
                 visible_id = each_person.visible_id
                 resp = c.get('%s/%s' % (path, visible_id))
                 self.assertEqual(resp.status_code, ruuxee.httplib.OK)
@@ -63,7 +63,7 @@ class TestApiReturnData(unittest.TestCase):
                 self.assertEqual(data['readable_id'],
                                  each_person.readable_id)
                 self.assertEqual(len(data), 5)
-            for each_person in dataaccess.db.persons:
+            for each_person in core.db.persons:
                 readable_id = each_person.readable_id
                 resp = c.get('%s/%s' % (path, readable_id))
                 self.assertEqual(resp.status_code, ruuxee.httplib.OK)
@@ -86,10 +86,10 @@ class TestApiReturnData(unittest.TestCase):
     def test_get_post_brief(self):
         with self.app.test_client() as c:
             path = '/apis/web/v1/post-brief'
-            dataaccess = self.app.config["RUUXEE_DATA_ACCESS"]
+            core = self.app.config["RUUXEE_CORE"]
             # Only for fake objects we can get list of persons.
             # Production database may not expose db property.
-            for each_post in dataaccess.db.posts:
+            for each_post in core.db.posts:
                 visible_id = each_post.visible_id
                 resp = c.get('%s/%s' % (path, visible_id))
                 self.assertEqual(resp.status_code, ruuxee.httplib.OK)
@@ -114,7 +114,7 @@ class TestApiReturnData(unittest.TestCase):
                         # Author name is kinds of complicated. The
                         # returned object contains only author_name. We
                         # must map it to real name.
-                        found = dataaccess.db.query_person('visible_id',\
+                        found = core.db.query_person('visible_id',\
                                             each_post.author_visible_id,\
                                                            ['name'])
                         self.assertEqual(found != None, True)
@@ -139,7 +139,7 @@ class TestApiReturnData(unittest.TestCase):
                         # Author name is kinds of complicated. The
                         # returned object contains only author_name. We
                         # must map it to real name.
-                        found = dataaccess.db.query_person('visible_id',\
+                        found = core.db.query_person('visible_id',\
                                             each_post.author_visible_id,\
                                                            ['name'])
                         self.assertEqual(found != None, True)

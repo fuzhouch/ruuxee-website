@@ -4,7 +4,7 @@
 """A configuration to setup enviornment for Web UI developers.
 
     This environment is configured witht the following settings:
-    1. Database access is fake with hardcoded fake data.
+    1. Core access is fake with hardcoded fake data.
     2. Start server in debug mode.
 """
 
@@ -20,7 +20,7 @@ import ruuxee.models.v1 as v1
 cache = mockv1.Cache()
 queue = mockv1.MessageQueue()
 database = mockv1.Database(cache)
-RUUXEE_DATA_ACCESS = v1.DataAccess(database, cache, queue)
+RUUXEE_CORE = v1.Core(database, cache, queue)
 RUUXEE_SESSION_MANAGER = mockv1.AlwaysBourneZhuWebSession(database)
 
 # The following configurations can only be visible in unit test mode.

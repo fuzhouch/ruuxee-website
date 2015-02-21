@@ -211,11 +211,11 @@ the following modules:
 
 * Flask routers. The entry point. These routers handles Http requests,
   parse URL and validate if requests are from authenticated users. If
-  yes, it calls corresponding APIs from DataAccess to process them
+  yes, it calls corresponding APIs from Core to process them
 
-* DataAccess. This module understand how to handle requests. It
+* Core. This module understand how to handle requests. It
   distinguishes interaction and operations, and decides how to process
-  them. For interactions, DataAccess forwards it to message queue
+  them. For interactions, Core forwards it to message queue
   worker, by adding a record to message queue. For operations, it
   handles them itself.
 
@@ -227,7 +227,7 @@ The structure of Web Handler role can be demonstrated with the chart
 below.
 
     +-------+     +------------+     +----------+
-    | Flask +-----+ DataAccess +--+--+ Queue    |
+    | Flask +-----+    Core    +--+--+ Queue    |
     +---+---+     +------------+  |  +----------+
         |                         |
         |                         |  +----------+

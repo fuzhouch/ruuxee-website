@@ -35,8 +35,8 @@ class Application(flask.Flask):
         return self.__app_name
 
     @staticmethod
-    def current_data_access():
-        return flask.current_app.config["RUUXEE_DATA_ACCESS"]
+    def current_core():
+        return flask.current_app.config["RUUXEE_CORE"]
 
     @staticmethod
     def current_session_manager():

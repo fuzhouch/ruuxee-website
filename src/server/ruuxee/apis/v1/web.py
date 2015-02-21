@@ -57,8 +57,8 @@ def get_person_brief(person_id):
     The function accepts both visible ID and/or readable ID of user as
     input.
     """
-    dataaccess = ruuxee.Application.current_data_access()
-    data = dataaccess.get_person_brief(person_id)
+    core = ruuxee.Application.current_core()
+    data = core.get_person_brief(person_id)
     return make_json_response(data)
 
 @page.route('/post-brief/<post_visible_id>')
@@ -68,8 +68,8 @@ def get_post_brief(post_visible_id):
 
     Return a brief of specified post, including title, author, etc.
     """
-    dataaccess = ruuxee.Application.current_data_access()
-    data = dataaccess.get_post_brief(post_visible_id)
+    core = ruuxee.Application.current_core()
+    data = core.get_post_brief(post_visible_id)
     return make_json_response(data)
 
 @page.route('/post/<post_visible_id>')
@@ -79,8 +79,8 @@ def get_post(post_visible_id):
 
     Return a full content of given post.
     """
-    dataaccess = ruuxee.Application.current_data_access()
-    return make_json_response(dataaccess.get_post(post_visible_id))
+    core = ruuxee.Application.current_core()
+    return make_json_response(core.get_post(post_visible_id))
 
 @page.route('/follow/topic/<topic_visible_id>', methods=['POST'])
 @signin_required
@@ -91,8 +91,8 @@ def follow_topic(topic_visible_id):
     """
     # To be implemented: We don't actually know the meaning of topic for
     # now.
-    dataaccess = ruuxee.Application.current_data_access()
-    return make_json_response(dataaccess.follow_topic(topic_visible_id))
+    core = ruuxee.Application.current_core()
+    return make_json_response(core.follow_topic(topic_visible_id))
 
 @page.route('/unfollow/topic/<topic_visible_id>', methods=['POST'])
 @signin_required
@@ -104,8 +104,8 @@ def unfollow_topic(topic_visible_id):
     # TODO
     # To be implemented: We don't actually know the meaning of topic for
     # now.
-    dataaccess = ruuxee.Application.current_data_access()
-    return make_json_response(dataaccess.unfollow_topic(topic_visible_id))
+    core = ruuxee.Application.current_core()
+    return make_json_response(core.unfollow_topic(topic_visible_id))
 
 @page.route('/follow/person/<follow_person_id>', methods=['POST'])
 @signin_required
@@ -114,10 +114,10 @@ def follow_person(follow_person_id):
 
     Make current person follow another, specified by visible ID.
     """
-    dataaccess = ruuxee.Application.current_data_access()
+    core = ruuxee.Application.current_core()
     session = ruuxee.Application.current_session_manager()
     this_person_id = session.authenticated_person_visible_id()
-    resp = dataaccess.follow_person(this_person_id, follow_person_id)
+    resp = core.follow_person(this_person_id, follow_person_id)
     return make_json_response(resp)
 
 @page.route('/unfollow/person/<unfollow_person_id>', methods=['POST'])
@@ -127,10 +127,10 @@ def unfollow_person(unfollow_person_id):
 
     Make current person unfollow another, specified by visible ID.
     """
-    dataaccess = ruuxee.Application.current_data_access()
+    core = ruuxee.Application.current_core()
     session = ruuxee.Application.current_session_manager()
     this_person_id = session.authenticated_person_visible_id()
-    resp = dataaccess.unfollow_person(this_person_id, unfollow_person_id)
+    resp = core.unfollow_person(this_person_id, unfollow_person_id)
     return make_json_response(resp)
 
 
@@ -141,8 +141,8 @@ def upvote_post(post_visible_id):
 
     Make current person upvote a post, specified by visible ID.
     """
-    dataaccess = ruuxee.Application.current_data_access()
-    return make_json_response(dataaccess.upvote_post(post_visible_id))
+    core = ruuxee.Application.current_core()
+    return make_json_response(core.upvote_post(post_visible_id))
 
 @page.route('/unupvote/post/<post_visible_id>', methods=['POST'])
 @signin_required
@@ -151,8 +151,8 @@ def unupvote_post(post_visible_id):
 
     Make current person un-upvote a post, specified by visible ID.
     """
-    dataaccess = ruuxee.Application.current_data_access()
-    return make_json_response(dataaccess.unupvote_post(post_visible_id))
+    core = ruuxee.Application.current_core()
+    return make_json_response(core.unupvote_post(post_visible_id))
 
 @page.route('/downvote/post/<post_visible_id>', methods=['POST'])
 @signin_required
@@ -161,8 +161,8 @@ def downvote_post(post_visible_id):
 
     Make current person downvote a post, specified by visible ID.
     """
-    dataaccess = ruuxee.Application.current_data_access()
-    return make_json_response(dataaccess.downvote_post(post_visible_id))
+    core = ruuxee.Application.current_core()
+    return make_json_response(core.downvote_post(post_visible_id))
 
 @page.route('/undownvote/post/<post_visible_id>', methods=['POST'])
 @signin_required
@@ -171,8 +171,8 @@ def undownvote_post(post_visible_id):
 
     Make current person downvote a post, specified by visible ID.
     """
-    dataaccess = ruuxee.Application.current_data_access()
-    return make_json_response(dataaccess.undownvote_post(post_visible_id))
+    core = ruuxee.Application.current_core()
+    return make_json_response(core.undownvote_post(post_visible_id))
 
 @page.route('/add/post/topic/<topic_visible_id>', methods=['PUT'])
 @signin_required
@@ -185,8 +185,8 @@ def add_post_under_topic(topic_visible_id):
     # TODO
     # To be implemented: We don't actually know the meaning of topic for
     # now.
-    dataaccess = ruuxee.Application.current_data_access()
-    data = dataaccess.add_post_under_topic(topic_visible_id)
+    core = ruuxee.Application.current_core()
+    data = core.add_post_under_topic(topic_visible_id)
     return make_json_response(data)
 
 @page.route('/edit/post/<post_visible_id>', methods=['POST'])
@@ -197,8 +197,8 @@ def edit_post(post_visible_id):
     Make current person edit a post, specified by post visible ID. A
     person can only edit a post written by himself/herself.
     """
-    dataaccess = ruuxee.Application.current_data_access()
-    return make_json_response(dataaccess.edit_post(post_visible_id))
+    core = ruuxee.Application.current_core()
+    return make_json_response(core.edit_post(post_visible_id))
 
 @page.route('/delete/post/<post_visible_id>', methods=['POST'])
 @signin_required
@@ -208,8 +208,8 @@ def delete_post(post_visible_id):
     Make current person delete a post, specified by post visible ID. A
     person can only edit a post written by himself/herself.
     """
-    dataaccess = ruuxee.Application.current_data_access()
-    return make_json_response(dataaccess.delete_post(post_visible_id))
+    core = ruuxee.Application.current_core()
+    return make_json_response(core.delete_post(post_visible_id))
 
 @page.route('/add/comment/post/<post_visible_id>', methods=['PUT'])
 @signin_required
@@ -218,8 +218,8 @@ def add_comment_under_post(post_visible_id):
 
     Add a comment under specified post.
     """
-    dataaccess = ruuxee.Application.current_data_access()
-    data = dataaccess.add_comment_under_post(post_visible_id)
+    core = ruuxee.Application.current_core()
+    data = core.add_comment_under_post(post_visible_id)
     return make_json_response(data)
 
 @page.route('/delete/comment/<comment_visible_id>', methods=['POST'])
@@ -230,8 +230,8 @@ def delete_comment(comment_visible_id):
     Delete a specified comment. A person can only delete a comment
     written by himself/herself.
     """
-    dataaccess = ruuxee.Application.current_data_access()
-    data = dataaccess.delete_comment(comment_visible_id)
+    core = ruuxee.Application.current_core()
+    data = core.delete_comment(comment_visible_id)
     return make_json_response(data)
 
 @page.route('/timeline/updates/<last_item_id>', methods=['GET'])
@@ -242,6 +242,6 @@ def get_timeline_updates(last_item_id):
     Get latest updates of current timeline. It retrieves only the items
     later than speicified item ID.
     """
-    dataaccess = ruuxee.Application.current_data_access()
-    data = dataaccess.delete_comment(comment_visible_id)
+    core = ruuxee.Application.current_core()
+    data = core.delete_comment(comment_visible_id)
     return make_json_response(data)
