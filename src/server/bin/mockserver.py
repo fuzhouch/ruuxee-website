@@ -8,16 +8,10 @@ import os.path
 import argparse
 import logging
 
-
 dirname = os.path.dirname(__file__)
 search_root = os.path.join(os.getcwd(), dirname)
 search_root = os.path.join(search_root, "..")
 sys.path.append(search_root)
-
-# Really start server
-import ruuxee
-import ruuxee.apis.v1.web
-import ruuxee.views.person
 
 parser = argparse.ArgumentParser(description="Start a mock server.")
 parser.add_argument('-t',
@@ -41,6 +35,10 @@ formatter = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 logging.basicConfig(filename=args.log, \
                     format=formatter, \
                     level=logging.DEBUG)
+
+import ruuxee
+import ruuxee.apis.v1.web
+import ruuxee.views.person
 
 app = ruuxee.Application(config='ruuxee.config.webui_dev',
                          template_folder=args.template_folder)
