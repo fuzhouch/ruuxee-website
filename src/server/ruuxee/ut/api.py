@@ -31,30 +31,36 @@ class TestApiReturnData(unittest.TestCase):
         # post and select its writer as target person.
         self.from_person_name = "bourne.zhu"
         self.from_person = self.helper_get_person(self.from_person_name)
-        self.from_person_id = str(self.from_person.visible_id)
+        self.from_person_id = self.from_person.visible_id
         self.from_person.status = model1.STATUS_ACTIVATED
 
         self.from_post = self.database.posts[0]
         self.from_post.status = model1.STATUS_ACTIVATED
-        self.from_post_id = str(self.from_post.visible_id)
+        self.from_post_id = self.from_post.visible_id
 
         # Let's pick the first article not written by bourne.zhu.
         self.to_post = None
         for each_post in self.database.posts:
-            if int(each_post.author_visible_id) != int(self.from_person_id):
+            if each_post.author_visible_id != self.from_person_id:
                 self.to_post = each_post
                 self.to_post.status = model1.STATUS_ACTIVATED
-                self.to_post_id = str(self.to_post.visible_id)
+                self.to_post_id = self.to_post.visible_id
                 break
         assert self.to_post is not None
 
         # Then the writer as target user.
+        self.to_person = None
         for each_person in self.database.persons:
             if each_person.visible_id == self.to_post.author_visible_id:
                 self.to_person = each_person
                 break
-        self.to_person_id = str(self.to_person.visible_id)
+        self.to_person_id = self.to_person.visible_id
         self.to_person.status = model1.STATUS_ACTIVATED
+        assert self.to_person is not None
+
+        self.to_topic = self.database.topics[0]
+        self.to_topic_id = self.to_topic.visible_id
+        self.to_topic.status = model1.STATUS_ACTIVATED
 
     def tearDown(self):
         pass
@@ -220,8 +226,8 @@ class TestApiReturnData(unittest.TestCase):
            4.3. A person can't follow himself/herself.
         """
         self.helper_empty_queue()
-        from_visible_id = str(from_obj.visible_id)
-        to_visible_id = str(to_obj.visible_id)
+        from_visible_id = from_obj.visible_id
+        to_visible_id = to_obj.visible_id
 
         # Case 1: Invalid IDs are not accepted.
         with self.app.test_client() as c:
@@ -294,15 +300,11 @@ class TestApiReturnData(unittest.TestCase):
                              ruuxee.httplib.METHOD_NOT_ALLOWED)
             self.assertEqual(len(self.queue.queue), 0)
 
-    def helper_test_valid_post(self, path, command_id):
-        pid = self.to_post_id
-        upvote_table = model1.TableNameGenerator.post_upvote(pid)
-        downvote_table = model1.TableNameGenerator.post_downvote(pid)
-        self.cache.initialize_list(upvote_table)
-        self.cache.initialize_list(downvote_table)
+    def helper_test_valid(self, path, command_id, to_obj):
+        pid = to_obj.visible_id
         with self.app.test_client() as c:
             now = int(time.time())
-            resp = c.post('%s/%s' % (path, self.to_post_id))
+            resp = c.post('%s/%s' % (path, to_obj.visible_id))
             data = json.loads(resp.data)
             status_code = data["status_code"]
             self.assertEqual(status_code, ruuxee.httplib.OK)
@@ -316,22 +318,24 @@ class TestApiReturnData(unittest.TestCase):
             self.assertEqual(timedelta < 1, True)
             self.assertEqual(splitted[1], command_id)
             self.assertEqual(splitted[2], self.from_person_id)
-            self.assertEqual(splitted[3], self.to_post_id)
+            self.assertEqual(splitted[3], to_obj.visible_id)
             self.assertEqual(splitted[4], "")
-        # Case 3
+        # Case 3: Repeated request can still return
         with self.app.test_client() as c:
             now = int(time.time())
-            resp = c.post('%s/%s' % (path, self.to_post_id))
+            resp = c.post('%s/%s' % (path, to_obj.visible_id))
             data = json.loads(resp.data)
             status_code = data["status_code"]
             self.assertEqual(status_code, ruuxee.httplib.OK)
             # Repeat once
-            resp = c.post('%s/%s' % (path, self.to_post_id))
+            resp = c.post('%s/%s' % (path, to_obj.visible_id))
             data = json.loads(resp.data)
             status_code = data["status_code"]
             self.assertEqual(status_code, ruuxee.httplib.OK)
             # Now there should be two items in queue.
             self.assertEqual(len(self.queue.queue), 2)
+        self.queue.queue.pop()
+        self.queue.queue.pop()
 
     def test_upvote_post(self):
         """
@@ -351,7 +355,13 @@ class TestApiReturnData(unittest.TestCase):
         # Case 2
         self.helper_test_self_post(path)
         # Case 1 and Case 3
-        self.helper_test_valid_post(path, model1.ACTION_UPVOTE_POST)
+        pid = self.to_post_id
+        upvote_table = model1.TableNameGenerator.post_upvote(pid)
+        downvote_table = model1.TableNameGenerator.post_downvote(pid)
+        self.cache.initialize_list(upvote_table)
+        self.cache.initialize_list(downvote_table)
+        self.helper_test_valid(path, model1.ACTION_UPVOTE_POST,
+                               self.to_post)
 
     def test_downvote_post(self):
         """
@@ -371,7 +381,13 @@ class TestApiReturnData(unittest.TestCase):
         # Case 2
         self.helper_test_self_post(path)
         # Case 1 and Case 3
-        self.helper_test_valid_post(path, model1.ACTION_DOWNVOTE_POST)
+        pid = self.to_post_id
+        upvote_table = model1.TableNameGenerator.post_upvote(pid)
+        downvote_table = model1.TableNameGenerator.post_downvote(pid)
+        self.cache.initialize_list(upvote_table)
+        self.cache.initialize_list(downvote_table)
+        self.helper_test_valid(path, model1.ACTION_DOWNVOTE_POST,\
+                               self.to_post)
 
     def test_neutralize_post(self):
         """
@@ -391,7 +407,14 @@ class TestApiReturnData(unittest.TestCase):
         # Case 2
         self.helper_test_self_post(path)
         # Case 1 and Case 3
-        self.helper_test_valid_post(path, model1.ACTION_NEUTRALIZE_POST)
+        pid = self.to_post_id
+        upvote_table = model1.TableNameGenerator.post_upvote(pid)
+        downvote_table = model1.TableNameGenerator.post_downvote(pid)
+        self.cache.initialize_list(upvote_table)
+        self.cache.initialize_list(downvote_table)
+        self.helper_test_valid(path, model1.ACTION_NEUTRALIZE_POST,\
+                               self.to_post)
+
 
     def test_follow_people(self):
         """
@@ -441,8 +464,12 @@ class TestApiReturnData(unittest.TestCase):
         with self.app.test_client() as c:
             resp = c.post('%s/%s' % (path, self.to_person_id))
             self.assertEqual(resp.status_code, ruuxee.httplib.OK)
-            self.assertEqual(len(self.queue.queue), 1)
+            resp = c.post('%s/%s' % (path, self.to_person_id))
+            self.assertEqual(resp.status_code, ruuxee.httplib.OK)
+            self.assertEqual(len(self.queue.queue), 2)
         self.queue.queue.pop()
+        self.queue.queue.pop()
+
 
         # Cleanup: Back to original status
         self.cache.remove_set(table, str(self.to_person_id))
@@ -499,10 +526,56 @@ class TestApiReturnData(unittest.TestCase):
         with self.app.test_client() as c:
             resp = c.post('%s/%s' % (path, self.to_person_id))
             self.assertEqual(resp.status_code, ruuxee.httplib.OK)
-            self.assertEqual(len(self.queue.queue), 1)
+            resp = c.post('%s/%s' % (path, self.to_person_id))
+            self.assertEqual(resp.status_code, ruuxee.httplib.OK)
+            self.assertEqual(len(self.queue.queue), 2)
+        self.queue.queue.pop()
         self.queue.queue.pop()
 
         # Cleanup: Back to original status
         self.to_person.status = original_to_obj_status
         self.from_person.status = original_from_obj_status
 
+    def test_unfollow_topic(self):
+        """
+        Test cases
+        3. A valid ID that was already followed:
+           3.1. Get OK.
+           3.2. A request is pushed into queue.
+           3.3. Command in queue is correct.
+           3.4. Timestamp should be valid.
+
+        5. Repeated unfollow will take additional processing in
+           backend.
+        """
+        self.helper_empty_queue()
+        path = '/apis/web/v1/unfollow/topic'
+        self.helper_test_common(path, self.from_person, self.to_topic)
+
+        tid = self.to_topic.visible_id
+        follow_table = model1.TableNameGenerator.person_follow_topic(tid)
+        self.cache.initialize_list(follow_table)
+        self.helper_test_valid(path, model1.ACTION_UNFOLLOW_TOPIC,\
+                               self.to_topic)
+
+    def test_follow_topic(self):
+        """
+        Test cases
+        3. A valid ID that was already followed:
+           3.1. Get OK.
+           3.2. A request is pushed into queue.
+           3.3. Command in queue is correct.
+           3.4. Timestamp should be valid.
+
+        5. Repeated unfollow will take additional processing in
+           backend.
+        """
+        self.helper_empty_queue()
+        path = '/apis/web/v1/follow/topic'
+        self.helper_test_common(path, self.from_person, self.to_topic)
+
+        tid = self.to_topic.visible_id
+        follow_table = model1.TableNameGenerator.person_follow_topic(tid)
+        self.cache.initialize_list(follow_table)
+        self.helper_test_valid(path, model1.ACTION_FOLLOW_TOPIC,\
+                               self.to_topic)

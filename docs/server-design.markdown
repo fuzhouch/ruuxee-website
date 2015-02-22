@@ -102,21 +102,23 @@ A complete ruuxee server system contains the follow roles:
 * Request worker.
 * Database & cache.
 
-    +----------------------+     +---------------+
-    |      Web handler     |->>>-| Message queue |
-    +----------+-----------+     +-------+-------+
-               |                         |
-               |                         |   +--------------------+
-               |                         +>>>+   Request worker   |
-               |                             +----------+---------+
-               |                                        |
-               |                                        v
-               |                                        v
-               |                                        |
-               |                             +----------+---------+
-               +------------->>>-------------+   Database/cache   |
-               +-------------<<<-------------+                    |
-                                             +--------------------+
+                     |
+ +^^^^^^^^^^^^^+     |      +-------------+       +----------------+
+ | Web clients |~~~~~|~~~~~~| Web handler |->>>---| Message queue  |
+ +vvvvvvvvvvvvv+     |      +-------------+       +--------+-------+
+                     |             |     |                 |
+                     |             |     |        +--------+-------+
+                     |             |     +--->>>--+ Request worker |
+                     |             |              +--------+-------+
+                     |             |                       |
+                     |             |                       v
+                     |             |                       v
+                     |             |                       |
+                     |             |              +-----------+----+
+                     |             +--->>>--------+ Database/cache |
+                     |             +---<<<--------+                |
+                     |                            +----------------+
+                     |
 
 Following traditional MVC pattern, we can consider Web page and API
 handlers as our View, and Message queue handler + Database workder as
@@ -226,17 +228,17 @@ the following modules:
 The structure of Web Handler role can be demonstrated with the chart
 below.
 
-    +-------+     +------------+     +----------+
-    | Flask +-----+    Core    +--+--+ Queue    |
-    +---+---+     +------------+  |  +----------+
-        |                         |
-        |                         |  +----------+
-        |                         +--+ Cache    |
-    +----------------+            |  +----------+
-    | SessionManager |            |
-    +-------+--------+            |  +----------+
-            +---------------------+--+ Database |
-                                     +----------+
+  +-------+     +------------+     +----------+
+  | Flask +-----+    Core    +--+--+ Queue    |
+  +---+---+     +------------+  |  +----------+
+      |                         |
+      |                         |  +----------+
+      |                         +--+ Cache    |
+  +----------------+            |  +----------+
+  | SessionManager |            |
+  +-------+--------+            |  +----------+
+          +---------------------+--+ Database |
+                                   +----------+
 
 ###Request Worker
 

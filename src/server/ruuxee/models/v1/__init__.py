@@ -54,6 +54,12 @@ ALL_POST_STATUS = [
         STATUS_SUSPENDED,
         STATUS_DELETED ]
 
+ALL_TOPIC_STATUS = [
+        STATUS_REVIEWING,
+        STATUS_ACTIVATED,
+        STATUS_SUSPENDED,
+        STATUS_DELETED ]
+
 TABLE_NAME_PERSON_ACTIONS           = "pa"
 TABLE_NAME_PERSON_FOLLOW_PERSON     = "pfp"
 TABLE_NAME_PERSON_TIMELINE          = "pt"
@@ -122,7 +128,7 @@ class Core(utils.Logging):
 
         Check if a post can be followed or voted. A post
         under reviewing, or suspended, or revoked, or deleted,
-        can't take action.
+        cannot take action.
 
         This function returns different HTTP codes on different account
         types:
@@ -130,8 +136,7 @@ class Core(utils.Logging):
             METHOD_NOT_ALLOWED for non-activated ID
             OK for success
         """
-        query = self.__db.query_post
-        return self.__is_actionable(post_visible_id, query)
+        return self.__is_actionable(post_visible_id, self.__db.query_post)
 
     def is_actionable_person(self, person_visible_id):
         """
@@ -139,7 +144,7 @@ class Core(utils.Logging):
 
         Check if a person can do any action in this web site. A
         user under reviewing, or suspended, or revoked, or deleted,
-        can't take action.
+        cannot take action.
 
         This function returns different HTTP codes on different account
         types:
@@ -147,9 +152,25 @@ class Core(utils.Logging):
             METHOD_NOT_ALLOWED for non-activated ID
             OK for success
         """
-        query = self.__db.query_person
-        return self.__is_actionable(person_visible_id, query)
+        return self.__is_actionable(person_visible_id,\
+                                    self.__db.query_person)
 
+    def is_actionable_topic(self, topic_visible_id):
+        """
+        def is_actionable_post(self, topic_visible_id) -> HTTP code
+
+        Check if a topic can accept changes. A topic can be suspended or
+        deleted, which cannot take any actions.
+
+        This function returns different HTTP codes on different account
+        types:
+            BAD_REQUESET for invalid user ID
+            METHOD_NOT_ALLOWED for non-activated ID
+            OK for success
+        """
+        return self.__is_actionable(topic_visible_id, self.__db.query_topic)
+
+    @utils.Logging.enter_leave
     def get_person_brief(self, person_id):
         # TODO
         # Brief information contains only the following fields. They are
@@ -194,7 +215,7 @@ class Core(utils.Logging):
             return self.__response(status)
 
         # NOTE
-        # It's very difficult to reject a temptation here, that we may
+        # It is very difficult to reject a temptation here, that we may
         # want to introduce a potential "optimization" to avoid
         # duplicated status updating, by checking whether
         # the follow/unfollow relationship is already there (see below): 
@@ -217,15 +238,15 @@ class Core(utils.Logging):
         #        status the final status becomes Unfollow.
         #
         # The step above is not correct because it silently ignore the
-        # later command. And there's no way to avoid this, unless we add
+        # later command. And there is no way to avoid this, unless we add
         # a big lock on check+push commands in both Core and Worker,
         # which may cause performance issue.
         #
         # So the correct way is to let both in queue and get processed.
         #
-        # There's another concern here, that bad guys may want to use
+        # There is another concern here, that bad guys may want to use
         # this to attack of queue, by repeatly sending
-        # Follow/Unfollow/Follow commands. I admit it's possible, but I
+        # Follow/Unfollow/Follow commands. I admit it is possible, but I
         # will leave this to Nginx by limiting the RPS (requests per
         # second) from same IP.
         #
@@ -259,6 +280,56 @@ class Core(utils.Logging):
         self.log_info("Effective: unfollow %s %s" % (current, target))
 
         action = ACTION_UNFOLLOW_PERSON
+        addition = ""
+        return self.__post_message(action, current, target, addition)
+
+    @utils.Logging.enter_leave
+    def follow_topic(self, current_person_id, topic_visible_id):
+        """
+        def follow_topic(self, current_person_id, topic_visible_id):
+
+        Make one person follow a topic. The person must be actionable.
+        NOTE: The topic may be suspended for administrative reason.
+        """
+        current = str(current_person_id)
+        target = str(topic_visible_id)
+
+        status = self.is_actionable_person(current)
+        if status != ruuxee.httplib.OK:
+            return self.__response(status)
+
+        status = self.is_actionable_topic(target)
+        if status != ruuxee.httplib.OK:
+            return self.__response(status)
+
+        self.log_info("Effective: follow_topic %s %s" % (current, target))
+
+        action = ACTION_FOLLOW_TOPIC
+        addition = ""
+        return self.__post_message(action, current, target, addition)
+
+    @utils.Logging.enter_leave
+    def unfollow_topic(self, current_person_id, topic_visible_id):
+        """
+        def unfollow_topic(self, current_person_id, topic_visible_id):
+
+        Make one person unfollow a topic. The person must be actionable.
+        NOTE: The topic may be suspended for administrative reason.
+        """
+        current = str(current_person_id)
+        target = str(topic_visible_id)
+
+        status = self.is_actionable_person(current)
+        if status != ruuxee.httplib.OK:
+            return self.__response(status)
+
+        status = self.is_actionable_topic(target)
+        if status != ruuxee.httplib.OK:
+            return self.__response(status)
+
+        self.log_info("Effective: unfollow_topic %s %s" % (current, target))
+
+        action = ACTION_UNFOLLOW_TOPIC
         addition = ""
         return self.__post_message(action, current, target, addition)
 
@@ -399,7 +470,7 @@ class Core(utils.Logging):
                                                   author_id, \
                                                   ['name'])
             # No need to check found_person. It must exist
-            # because it's from internal database. The insert
+            # because it is from internal database. The insert
             # logic should have ensured this.                  
             author_name = found_person[0]["name"]
         return author_name
@@ -449,7 +520,7 @@ class Core(utils.Logging):
 
 class RequestWorker(utils.Logging):
     """
-    The worker to process all information in message queue. It's
+    The worker to process all information in message queue. It is
     running in different process of DataAccessApi.
     """
     def __init__(self, database, cache, queue):

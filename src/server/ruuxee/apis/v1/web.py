@@ -105,10 +105,11 @@ def follow_topic(topic_visible_id):
 
     Make current person follow a topic, specified by visible ID.
     """
-    # To be implemented: We don't actually know the meaning of topic for
-    # now.
     core = ruuxee.Application.current_core()
-    return make_json_response(core.follow_topic(topic_visible_id))
+    session = ruuxee.Application.current_session_manager()
+    this_person_id = session.authenticated_person_visible_id()
+    resp = core.follow_topic(this_person_id, topic_visible_id)
+    return make_json_response(resp)
 
 @page.route('/unfollow/topic/<topic_visible_id>', methods=['POST'])
 @signin_required
@@ -117,11 +118,11 @@ def unfollow_topic(topic_visible_id):
 
     Make current person unfollow a topic, specified by visible ID.
     """
-    # TODO
-    # To be implemented: We don't actually know the meaning of topic for
-    # now.
     core = ruuxee.Application.current_core()
-    return make_json_response(core.unfollow_topic(topic_visible_id))
+    session = ruuxee.Application.current_session_manager()
+    this_person_id = session.authenticated_person_visible_id()
+    resp = core.unfollow_topic(this_person_id, topic_visible_id)
+    return make_json_response(resp)
 
 @page.route('/follow/person/<follow_person_id>', methods=['POST'])
 @signin_required
