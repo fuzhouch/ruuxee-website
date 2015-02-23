@@ -169,25 +169,49 @@ class Database(object):
         self.__posts[0].author_visible_id = target_id
 
 class MessageQueue(object):
-    def __init__(self):
+    """
+    A fake message queue. It is designed to support two scenarios:
+    Unit test (single threaded) or functional test with fake data
+    (multiple threaded).
+    same
+    """
+    def __init__(self, with_worker=False):
         self.__queue = []
+        self.__with_worker = with_worker
+        self.__ready = None
+        if with_worker:
+            self.__ready = threading.Condition()
+
     @property
     def queue(self):
+        if self.__with_worker:
+            return None
         return self.__queue
 
     def push_queue(self, record):
-        self.__queue.insert(0, record)
+        if self.__with_worker:
+            with self.__ready:
+                self.__queue.insert(0, record)
+                self.__ready.notify()
+        else:
+            self.__queue.insert(0, record)
 
     def pop_queue(self):
         # NOTE
-        # We don't check if set already exist and THIS IS AS EXPECTED.
+        # We do not check if set already exist and THIS IS AS EXPECTED.
         # We expect all necessary tables are created when an entity was
         # created. If there's any steps that does not do this job, it
         # should crash here when running unit test with mock.
         #
         # In real environment the real Redis message queue should block
         # here.
-        self.__queue.pop()
+        if self.__with_worker:
+            with self.__ready:
+                if len(self.__queue) == 0:
+                    self.__ready.wait()
+                return self.__pueue.pop()
+        else:
+            return self.__queue.pop()
 
 class Cache(object):
     def __init__(self):
@@ -209,7 +233,7 @@ class Cache(object):
 
     def insert_set(self, set_name, value):
         # NOTE
-        # We don't check if set already exist and THIS IS AS EXPECTED.
+        # We do not check if set already exist and THIS IS AS EXPECTED.
         # We expect all necessary tables are created when an entity was
         # created. If there's any steps that does not do this job, it
         # should crash here when running unit test with mock.
@@ -217,7 +241,7 @@ class Cache(object):
 
     def remove_set(self, set_name, value):
         # NOTE
-        # We don't check if set already exist and THIS IS AS EXPECTED.
+        # We do not check if set already exist and THIS IS AS EXPECTED.
         # We expect all necessary tables are created when an entity was
         # created. If there's any steps that does not do this job, it
         # should crash here when running unit test with mock.
