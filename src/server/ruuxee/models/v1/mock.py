@@ -8,6 +8,7 @@ import time
 import string
 import random
 import hashlib
+import threading
 
 class Person(object):
     pass
@@ -162,6 +163,8 @@ class Database(object):
             model1.initialize_person_cache(cache, each_person.visible_id)
         for each_post in self.__posts:
             model1.initialize_post_cache(cache, each_post.visible_id)
+        for each_topic in self.__topics:
+            model1.initialize_topic_cache(cache, each_topic.visible_id)
 
         # Let's always set author of first post as bourne.zhu for test
         # purposes.
@@ -179,13 +182,15 @@ class MessageQueue(object):
         self.__queue = []
         self.__with_worker = with_worker
         self.__ready = None
-        if with_worker:
+        self.set_with_worker(with_worker)
+
+    def set_with_worker(self, status = False):
+        self.__with_worker = status
+        if self.__with_worker:
             self.__ready = threading.Condition()
 
     @property
     def queue(self):
-        if self.__with_worker:
-            return None
         return self.__queue
 
     def push_queue(self, record):
@@ -209,7 +214,7 @@ class MessageQueue(object):
             with self.__ready:
                 if len(self.__queue) == 0:
                     self.__ready.wait()
-                return self.__pueue.pop()
+                return self.__queue.pop()
         else:
             return self.__queue.pop()
 
@@ -231,6 +236,9 @@ class Cache(object):
     def lists(self):
         return self.__lists
 
+    def initialize_set(self, set_name):
+        self.__sets[set_name] = set()
+
     def insert_set(self, set_name, value):
         # NOTE
         # We do not check if set already exist and THIS IS AS EXPECTED.
@@ -247,20 +255,29 @@ class Cache(object):
         # should crash here when running unit test with mock.
         self.__sets[set_name].remove(value)
 
+    def get_full_set(self, set_name):
+        return self.__sets[set_name]
+
+    def initialize_list(self, list_name):
+        self.__lists[list_name] = []
+
     def in_set(self, set_name, value):
         return value in self.__sets[set_name]
 
     def append_list(self, list_name, value):
         self.__lists[list_name].append(value)
 
+    def prepend_list(self, list_name, value):
+        self.__lists[list_name].insert(0, value)
+
     def remove_list(self, list_name, value):
         self.__lists[list_name].remove(value)
 
-    def initialize_list(self, list_name):
-        self.__lists[list_name] = []
+    def in_list(self, list_name, value):
+        return value in self.__lists[list_name]
 
-    def initialize_set(self, set_name):
-        self.__sets[set_name] = set()
+    def get_list_range(self, list_name, begin, end):
+        return self.__lists[list_name][begin:end]
 
 class AlwaysBourneZhuWebSession(object):
     """A fake WebSession that deal with login session.

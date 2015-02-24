@@ -6,7 +6,6 @@ import ruuxee
 import ruuxee.utils as utils
 import logging
 import re
-import flask
 
 STATUS_REVIEWING  = 1
 STATUS_ACTIVATED  = 2
@@ -60,13 +59,14 @@ ALL_TOPIC_STATUS = [
         STATUS_SUSPENDED,
         STATUS_DELETED ]
 
-TABLE_NAME_PERSON_ACTIONS           = "pa"
-TABLE_NAME_PERSON_FOLLOW_PERSON     = "pfp"
-TABLE_NAME_PERSON_TIMELINE          = "pt"
-TABLE_NAME_PERSON_FOLLOW_PERSON     = "pfp"
-TABLE_NAME_PERSON_FOLLOW_TOPIC      = "pft"
-TABLE_NAME_POST_UPVOTE              = "pu"
-TABLE_NAME_POST_DOWNVOTE            = "pd"
+TABLE_NAME_PERSON_ACTIONS            = "pa"
+TABLE_NAME_PERSON_FOLLOW_PERSON      = "pfp"
+TABLE_NAME_PERSON_FOLLOWED_BY_PERSON = "pfbp"
+TABLE_NAME_PERSON_TIMELINE           = "pt"
+TABLE_NAME_PERSON_FOLLOW_TOPIC       = "pft"
+TABLE_NAME_TOPIC_FOLLOWED_BY_PERSON  = "pfbt"
+TABLE_NAME_POST_UPVOTE               = "pu"
+TABLE_NAME_POST_DOWNVOTE             = "pd"
 
 # The stop sign is used to tell QueueWorker that it should stop.
 MESSAGE_QUEUE_STOP_SIGN = '{EOQ}'
@@ -91,8 +91,16 @@ class TableNameGenerator(object):
         return "%s%s" % (TABLE_NAME_PERSON_FOLLOW_TOPIC, str(visible_id))
 
     @staticmethod
+    def topic_followed_by_person(visible_id):
+        return "%s%s" % (TABLE_NAME_TOPIC_FOLLOWED_BY_PERSON, str(visible_id))
+
+    @staticmethod
     def person_follow_person(visible_id):
         return "%s%s" % (TABLE_NAME_PERSON_FOLLOW_PERSON, str(visible_id))
+
+    @staticmethod
+    def person_followed_by_person(visible_id):
+        return "%s%s" % (TABLE_NAME_PERSON_FOLLOWED_BY_PERSON, str(visible_id))
 
     @staticmethod
     def post_upvote(visible_id):
@@ -101,6 +109,102 @@ class TableNameGenerator(object):
     @staticmethod
     def post_downvote(visible_id):
         return "%s%s" % (TABLE_NAME_POST_DOWNVOTE, str(visible_id))
+
+    @staticmethod
+    def person_timeline(visible_id):
+        return "%s%s" % (TABLE_NAME_PERSON_TIMELINE, str(visible_id))
+
+@utils.Logging.enter_leave
+def initialize_person_cache(cache, visible_id):
+    """def initialize_person_cache(cache, visible_id)
+    Create cache for a specified user. Used when creating a new user
+    account."""
+    logging.info("initialize_person_cache: %s" % visible_id)
+    action_history = TableNameGenerator.person_action(visible_id)
+    timeline = TableNameGenerator.person_timeline(visible_id)
+    followers = TableNameGenerator.person_follow_person(visible_id)
+    followed_by = TableNameGenerator.person_followed_by_person(visible_id)
+    topics = TableNameGenerator.person_follow_topic(visible_id)
+    cache.initialize_list(action_history)
+    cache.initialize_list(timeline)
+    cache.initialize_set(followers)
+    cache.initialize_set(followed_by)
+    cache.initialize_set(topics)
+
+@utils.Logging.enter_leave
+def initialize_post_cache(cache, visible_id):
+    """def initialize_post_cache(cache, visible_id)
+    Create cache for an article when it's created."""
+    logging.info("initialize_post_cache: %s" % visible_id)
+    upvotes = TableNameGenerator.post_upvote(visible_id)
+    downvotes = TableNameGenerator.post_downvote(visible_id)
+    cache.initialize_list(upvotes)
+    cache.initialize_list(downvotes)
+
+@utils.Logging.enter_leave
+def initialize_topic_cache(cache, visible_id):
+    """def initialize_post_cache(cache, visible_id)
+    Create cache tables for a topic when it's created."""
+    logging.info("initialize_post_topic: %s" % visible_id)
+    followers = TableNameGenerator.topic_followed_by_person(visible_id)
+    cache.initialize_set(followers)
+
+class HistoryItem(object):
+    "An internal helper object to decode and encode item in timeline."
+    def __init__(self, stimestamp, action, source, target, addition):
+        self.__stimestamp = stimestamp
+        self.__action = action
+        self.__source = source
+        self.__target = target
+        self.__addition = addition
+
+    @staticmethod
+    def create_from_record(record):
+        data = record.split(":")
+        assert len(data) == 5
+        stimestamp = data[0]
+        action = data[1]
+        source = data[2]
+        target = data[3]
+        addition = data[4]
+        return HistoryItem(stimestamp, action, source, target, addition)
+
+    def decode(self, record):
+        data = record.split(":")
+        assert len(data) == 5
+        self.__stimestamp = data[0]
+        self.__action = data[1]
+        self.__source = data[2]
+        self.__target = data[3]
+        self.__addition = data[4]
+
+    def encode(self):
+        record = "%d:%s:%s:%s:%s" % (self.__stimestamp,\
+                                     self.__action,
+                                     self.__source,
+                                     self.__target,
+                                     self.__addition)
+        return record
+
+    @property
+    def stimestamp(self):
+        return self.__stimestamp
+
+    @property
+    def action(self):
+        return self.__action
+
+    @property
+    def source_id(self):
+        return self.__source
+
+    @property
+    def target_id(self):
+        return self.__target
+
+    @property
+    def addition_id(self):
+        return self.__addition
 
 class Core(utils.Logging):
     "The main module to provide Apis for web handler."
@@ -123,8 +227,7 @@ class Core(utils.Logging):
         return self.__queue
 
     def is_actionable_post(self, post_visible_id):
-        """
-        def is_actionable_post(self, post_visible_id) -> HTTP code
+        """def is_actionable_post(self, post_visible_id) -> HTTP code
 
         Check if a post can be followed or voted. A post
         under reviewing, or suspended, or revoked, or deleted,
@@ -132,15 +235,13 @@ class Core(utils.Logging):
 
         This function returns different HTTP codes on different account
         types:
-            BAD_REQUESET for invalid user ID
+            BAD_REQUEST for invalid user ID
             METHOD_NOT_ALLOWED for non-activated ID
-            OK for success
-        """
+            OK for success"""
         return self.__is_actionable(post_visible_id, self.__db.query_post)
 
     def is_actionable_person(self, person_visible_id):
-        """
-        def is_actionable_person(self, person_visible_id) -> HTTP code
+        """def is_actionable_person(self, person_visible_id) -> HTTP code
 
         Check if a person can do any action in this web site. A
         user under reviewing, or suspended, or revoked, or deleted,
@@ -148,26 +249,23 @@ class Core(utils.Logging):
 
         This function returns different HTTP codes on different account
         types:
-            BAD_REQUESET for invalid user ID
+            BAD_REQUEST for invalid user ID
             METHOD_NOT_ALLOWED for non-activated ID
-            OK for success
-        """
+            OK for success"""
         return self.__is_actionable(person_visible_id,\
                                     self.__db.query_person)
 
     def is_actionable_topic(self, topic_visible_id):
-        """
-        def is_actionable_post(self, topic_visible_id) -> HTTP code
+        """def is_actionable_post(self, topic_visible_id) -> HTTP code
 
         Check if a topic can accept changes. A topic can be suspended or
         deleted, which cannot take any actions.
 
         This function returns different HTTP codes on different account
         types:
-            BAD_REQUESET for invalid user ID
+            BAD_REQUEST for invalid user ID
             METHOD_NOT_ALLOWED for non-activated ID
-            OK for success
-        """
+            OK for success"""
         return self.__is_actionable(topic_visible_id, self.__db.query_topic)
 
     @utils.Logging.enter_leave
@@ -176,9 +274,9 @@ class Core(utils.Logging):
         # Brief information contains only the following fields. They are
         # supposed to be used in hovering popup window.
         fields = ["name", "visible_id", "readable_id", "company"]
-        data = self.__db.query_person('visible_id', person_id, fields)
+        data = self.__db.query_person("visible_id", person_id, fields)
         if data is None:
-            data = self.__db.query_person('readable_id', person_id, fields)
+            data = self.__db.query_person("readable_id", person_id, fields)
 
         if data is not None:
             return data[0]
@@ -195,12 +293,10 @@ class Core(utils.Logging):
 
     @utils.Logging.enter_leave
     def follow_person(self, current_person_id, follow_person_id):
-        """
-        def follow_person(self, current_person_id, follow_person_id)
+        """def follow_person(self, current_person_id, follow_person_id)
 
         Make one person follow another person. Both persons must be
-        actionable.
-        """
+        actionable."""
         current = str(current_person_id)
         target = str(follow_person_id)
         if current == target:
@@ -258,12 +354,10 @@ class Core(utils.Logging):
 
     @utils.Logging.enter_leave
     def unfollow_person(self, current_person_id, unfollow_person_id):
-        """
-        def unfollow_person(self, current_person_id, follow_person_id)
+        """def unfollow_person(self, current_person_id, follow_person_id)
 
         Make one person follow another person. Both persons must be
-        actionable.
-        """
+        actionable."""
         current = str(current_person_id)
         target = str(unfollow_person_id)
         if current == target:
@@ -285,12 +379,10 @@ class Core(utils.Logging):
 
     @utils.Logging.enter_leave
     def follow_topic(self, current_person_id, topic_visible_id):
-        """
-        def follow_topic(self, current_person_id, topic_visible_id):
+        """def follow_topic(self, current_person_id, topic_visible_id):
 
         Make one person follow a topic. The person must be actionable.
-        NOTE: The topic may be suspended for administrative reason.
-        """
+        NOTE: The topic may be suspended for administrative reason."""
         current = str(current_person_id)
         target = str(topic_visible_id)
 
@@ -310,12 +402,10 @@ class Core(utils.Logging):
 
     @utils.Logging.enter_leave
     def unfollow_topic(self, current_person_id, topic_visible_id):
-        """
-        def unfollow_topic(self, current_person_id, topic_visible_id):
+        """def unfollow_topic(self, current_person_id, topic_visible_id):
 
         Make one person unfollow a topic. The person must be actionable.
-        NOTE: The topic may be suspended for administrative reason.
-        """
+        NOTE: The topic may be suspended for administrative reason."""
         current = str(current_person_id)
         target = str(topic_visible_id)
 
@@ -335,12 +425,10 @@ class Core(utils.Logging):
 
     @utils.Logging.enter_leave
     def upvote_post(self, current_person_id, target_post_id):
-        """
-        def upvote_post(self, current_person_id, target_post_id)
+        """def upvote_post(self, current_person_id, target_post_id)
 
         Make one person upvote a post. The person and post must be both
-        actionable.
-        """
+        actionable."""
         current = str(current_person_id)
         target = str(target_post_id)
 
@@ -364,12 +452,10 @@ class Core(utils.Logging):
 
     @utils.Logging.enter_leave
     def downvote_post(self, current_person_id, target_post_id):
-        """
-        def downvote_post(self, current_person_id, target_post_id)
+        """def downvote_post(self, current_person_id, target_post_id)
 
         Make one person downvote a post. The person and post must be
-        both actionable.
-        """
+        both actionable."""
         current = str(current_person_id)
         target = str(target_post_id)
 
@@ -391,13 +477,12 @@ class Core(utils.Logging):
         addition = ""
         return self.__post_message(action, current, target, addition)
 
+    @utils.Logging.enter_leave
     def neutralize_post(self, current_person_id, target_post_id):
-        """
-        def neutralize_post(self, current_person_id, target_post_id)
+        """def neutralize_post(self, current_person_id, target_post_id)
 
         Make one person neutralize a post (neither upvote or downvote).
-        The person and post must be both actionable.
-        """
+        The person and post must be both actionable."""
         current = str(current_person_id)
         target = str(target_post_id)
 
@@ -419,6 +504,48 @@ class Core(utils.Logging):
         addition = ""
         return self.__post_message(action, current, target, addition)
 
+    @utils.Logging.enter_leave
+    def get_timeline_range(self, current_person_id, begin, end):
+        """def get_timeline_range(self, current_person_id, begin, end)
+
+        Return specified range of latest updates."""
+        current = str(current_person_id)
+        try:
+            begin_offset = int(begin)
+            end_offset = int(end)
+        except Exception:
+            return self.__response(ruuxee.httplib.BAD_REQUEST)
+
+        if begin_offset < 0 or end_offset < 0:
+            return self.__response(ruuxee.httplib.BAD_REQUEST)
+
+        if begin_offset >= end_offset:
+            return self.__response(ruuxee.httplib.METHOD_NOT_ALLOWED)
+
+        status = self.is_actionable_person(current)
+        if status != ruuxee.httplib.OK:
+            return self.__response(status)
+
+        self.log_info("Effective: timeline %s %s %s" % (current, begin, end))
+        # It is an synchronized operation, we get it directly from
+        # timeline cache.
+        table_name = TableNameGenerator.person_timeline(current)
+        ret = self.__cache.get_list_range(table_name,\
+                                          begin_offset, end_offset)
+        response = self.__response(ruuxee.httplib.OK)
+        response["data"] = []
+        for each_record in ret:
+            data = {}
+            item = HistoryItem.create_from_record(each_record)
+            data["timestamp"] = item.stimestamp
+            data["action"] = item.action
+            data["from_visible_id"] = item.source_id
+            data["to_visible_id"] = item.target_id
+            # item.addition is not exposed because it's used for
+            # internal reference.
+            response["data"].append(data)
+        return response
+
     def __is_post_written_by(self, post_id, person_id):
         fields = ["author_visible_id"]
         try:
@@ -435,7 +562,7 @@ class Core(utils.Logging):
     def __is_actionable(self, visible_id, query_func):
         fields = ["status"]
         try:
-            data = query_func('visible_id', visible_id, fields)
+            data = query_func("visible_id", visible_id, fields)
         except Exception: # Invalid visible ID
             return ruuxee.httplib.BAD_REQUEST
         if data is None or len(data) == 0: # ID not found
@@ -453,8 +580,8 @@ class Core(utils.Logging):
 
     def __post_message(self, action, source, target, addition):
         ts = utils.stimestamp()
-        record = "%d:%s:%s:%s:%s" % (ts, action, source, target, addition)
-        self.__queue.push_queue(record)
+        item = HistoryItem(ts, action, source, target, addition)
+        self.__queue.push_queue(item.encode())
         return self.__response()
 
     # --------------------------------------------------------------
@@ -466,9 +593,9 @@ class Core(utils.Logging):
             author_name = ANONYMOUS_PERSON_NAME
         else:
             author_id = data["author_visible_id"]
-            found_person = self.__db.query_person('visible_id', \
+            found_person = self.__db.query_person("visible_id", \
                                                   author_id, \
-                                                  ['name'])
+                                                  ["name"])
             # No need to check found_person. It must exist
             # because it is from internal database. The insert
             # logic should have ensured this.                  
@@ -481,7 +608,7 @@ class Core(utils.Logging):
         if full:
             fields += [ "written_timestamp", "content_html" ]
         data = None
-        result = self.__db.query_post('visible_id', post_visible_id, fields)
+        result = self.__db.query_post("visible_id", post_visible_id, fields)
         if result is not None:
             single = result[0]
             if single["status"] == STATUS_REVIEWING:
@@ -519,27 +646,23 @@ class Core(utils.Logging):
         return data
 
 class RequestWorker(utils.Logging):
-    """
-    The worker to process all information in message queue. It is
-    running in different process of DataAccessApi.
-    """
+    """The worker to process all information in message queue. It is
+    running in different process of Core."""
     def __init__(self, database, cache, queue):
         self.__db = database
         self.__cache = cache
         self.__queue = queue
         # pattern of request:
         # {timestamp}:{action}:{from_id}:{to_id}[:{additional_data_id}]
-        self.__pattern = re.compile(r"^(\d\d*):(\w\w*):(\d\d*):(\d\d*)")
+        self.__pattern = re.compile(r"^(\d\d*):(\w\w*):(\d\d*):(\d\d*):(\d*)")
         self.__handlers = {
                 ACTION_FOLLOW_PERSON: self.__follow_person,
                 ACTION_UNFOLLOW_PERSON: self.__unfollow_person,
-                ACTION_FOLLOW_TOPIC: None,
-                ACTION_UNFOLLOW_TOPIC: None,
-                ACTION_UPVOTE_POST: None,
-                ACTION_UNUPVOTE_POST: None,
-                ACTION_DOWNVOTE_POST: None,
-                ACTION_UNDOWNVOTE_POST: None,
-                ACTION_APPRECIATE_POST: None
+                ACTION_FOLLOW_TOPIC: self.__follow_topic,
+                ACTION_UNFOLLOW_TOPIC: self.__unfollow_topic,
+                ACTION_UPVOTE_POST: self.__upvote_post,
+                ACTION_NEUTRALIZE_POST: self.__neutralize_post,
+                ACTION_DOWNVOTE_POST: self.__downvote_post
         }
         utils.Logging.__init__(self)
 
@@ -561,12 +684,12 @@ class RequestWorker(utils.Logging):
         while True:
             record = self.__queue.pop_queue()
             if record == MESSAGE_QUEUE_STOP_SIGN:
-                self.log_warning('STOP_SIGN received')
+                self.log_info("STOP_SIGN received. Goodbye.")
                 break
             else:
                 ts, action, from_id, to_id, addition = \
                                            self.__parse_request(record)
-                self.__process_request(ts, action, fid, tid, addition)
+                self.__process_request(ts, action, from_id, to_id, addition)
 
     @utils.Logging.enter_leave
     def __parse_request(self, record):
@@ -575,75 +698,96 @@ class RequestWorker(utils.Logging):
             self.log_error("bad format: " % record)
             raise ValueError(record)
         else:
-            ts = m.group(1)
+            ts = int(m.group(1))
+            # NOTE ts must success as it's indeed internal.
             action = m.group(2)
             from_id = m.group(3)
             to_id = m.group(4)
             addition = m.group(5)
-        return (ts, action, from_id, to_id)
+        return (ts, action, from_id, to_id, addition)
 
     @utils.Logging.enter_leave
     def __process_request(self, ts, action, from_id, to_id, addition):
         self.__add_action_history(ts, action, from_id, to_id, addition)
         handler = self.__handlers[action]
-        handler(ts, from_id, to_id)
+        handler(ts, from_id, to_id, addition)
 
     # ============= Handler functions ==============
     def __follow_person(self, ts, from_id, to_id, addition):
-        self.log_info("%s follows %s" % (from_id, to_id))
-        table_name = "%s:%s" % (TABLE_NAME_PERSON_FOLLOW_PERSON, current)
+        table_name = TableNameGenerator.person_follow_person(from_id)
         self.__cache.insert_set(table_name, to_id)
+        table_name = TableNameGenerator.person_followed_by_person(to_id)
+        self.__cache.insert_set(table_name, from_id)
+        self.log_info("%s follow %s" % (from_id, to_id))
 
     def __unfollow_person(self, ts, from_id, to_id, addition):
-        table_name = "%s:%s" % (TABLE_NAME_PERSON_FOLLOW_PERSON, current)
+        table_name = TableNameGenerator.person_follow_person(from_id)
         self.__cache.remove_set(table_name, to_id)
-        self.log_info("%s unfollows %s" % (from_id, to_id))
+        table_name = TableNameGenerator.person_followed_by_person(to_id)
+        self.__cache.remove_set(table_name, from_id)
+        self.log_info("%s unfollow %s" % (from_id, to_id))
 
-#    """ # No use for now
-#    def __update_follower_timelines(timestamp, action, current, target):
-#        table_name = "%s:%s" % (TABLE_NAME_PERSON_FOLLOW_PERSON, current)
-#        followers_with_flags = self.__cache.get_full_list(table_name)
-#        followers = [each[:-1] for each in followers_with_flags]
-#        for each_follower in followers:
-#            self.__update_one_timeline(timestamp, action, follower,
-#            current)#
+    def __follow_topic(self, ts, from_id, to_id, addition):
+        table_name = TableNameGenerator.person_follow_topic(from_id)
+        self.__cache.insert_set(table_name, to_id)
+        table_name = TableNameGenerator.topic_followed_by_person(to_id)
+        self.__cache.insert_set(table_name, from_id)
+        action = ACTION_FOLLOW_TOPIC
+        self.__update_follower_timelines(ts, action, from_id, to_id, addition)
+        self.log_info("%s follow_topic %s" % (from_id, to_id))
 
-#    def __update_one_timeline(timestamp, action, current, target):
-#        table_name = "%s:%s" % (TABLE_NAME_PERSON_TIMELINE, current)
-#        data = "%10d:%c:%s:%s" % (timestamp, action, current, target)
-#        self.__cache.prepend_list(table_name, data)
+    def __unfollow_topic(self, ts, from_id, to_id, addition):
+        table_name = TableNameGenerator.person_follow_topic(from_id)
+        self.__cache.remove_set(table_name, to_id)
+        table_name = TableNameGenerator.topic_followed_by_person(to_id)
+        self.__cache.remove_set(table_name, from_id)
+        self.log_info("%s unfollow_topic %s" % (from_id, to_id))
 
-#    def __add_action_history(self, timestamp, current, target):
-#        table_name = "%s:%s" % (TABLE_NAME_PERSON_ACTIONS, current)
-#        data = "%10d:%s:%s" % (timestamp, action, str(target))
-#        self.log_info("table = %s, data = %s" % (table_name, data))
-#        self.__cache.prepend_list(table_name, data)
-#    """
+    def __upvote_post(self, ts, from_id, to_id, addition):
+        table_name = TableNameGenerator.post_downvote(to_id)
+        if self.__cache.in_list(table_name, from_id):
+            self.__cache.remove_list(table_name, from_id)
+        table_name = TableNameGenerator.post_upvote(to_id)
+        self.__cache.prepend_list(table_name, from_id)
+        self.log_info("%s upvote %s" % (from_id, to_id))
+        action = ACTION_UPVOTE_POST
+        self.__update_follower_timelines(ts, action, from_id, to_id, addition)
 
-@utils.Logging.enter_leave
-def initialize_person_cache(cache, visible_id):
-    """
-    def initialize_person_cache(cache, visible_id)
-    Create cache for a specified user. Used when creating a new user
-    account.
-    """
-    logging.info("initialize_person_cache: %s" % visible_id)
-    action_history = TableNameGenerator.person_action(visible_id)
-    timeline = TableNameGenerator.person_timeline(visible_id)
-    followers = TableNameGenerator.person_follow_person(visible_id)
-    topics = TableNameGenerator.person_follow_topic(visible_id)
-    cache.initialize_list(action_history)
-    cache.initialize_list(timeline)
-    cache.initialize_set(followers)
+    def __downvote_post(self, ts, from_id, to_id, addition):
+        table_name = TableNameGenerator.post_upvote(to_id)
+        if self.__cache.in_list(table_name, from_id):
+            self.__cache.remove_list(table_name, from_id)
+        table_name = TableNameGenerator.post_downvote(to_id)
+        self.__cache.prepend_list(table_name, from_id)
+        self.log_info("%s downvote %s" % (from_id, to_id))
 
-@utils.Logging.enter_leave
-def initialize_post_cache(cache, visible_id):
-    """
-    def initialize_post_cache(cache, visible_id)
-    Create cache for a specific user, Used when creating a new post.
-    """
-    logging.info("initialize_post_cache: %s" % visible_id)
-    upvotes = TableNameGenerator.post_upvote(visible_id)
-    downvotes = TableNameGenerator.post_downvote(visible_id)
-    cache.initialize_list(upvotes)
-    cache.initialize_list(downvotes)
+    def __neutralize_post(self, ts, from_id, to_id, addition):
+        table_name = TableNameGenerator.post_downvote(to_id)
+        if self.__cache.in_list(table_name, from_id):
+            self.__cache.remove_list(table_name, from_id)
+        table_name = TableNameGenerator.post_upvote(to_id)
+        if self.__cache.in_list(table_name, from_id):
+            self.__cache.remove_list(table_name, from_id)
+        self.log_info("%s neutralize %s" % (from_id, to_id))
+
+    def __add_action_history(self, timestamp,\
+                             action, current, target, addition):
+        table_name = TableNameGenerator.person_action(current)
+        data = HistoryItem(timestamp, action, current, target, addition)
+        self.__cache.prepend_list(table_name, data.encode())
+        self.log_info("table = %s, data = %s" % (table_name, data))
+
+    def __update_follower_timelines(self, timestamp,\
+                                    action, current, target, addition):
+        table_name = TableNameGenerator.person_followed_by_person(current)
+        followers = self.__cache.get_full_set(table_name)
+        for each_follower in followers:
+            self.__update_one_timeline(timestamp, action, each_follower,
+                                       current, target, addition)
+
+    def __update_one_timeline(self, timestamp,\
+                              action, follower, current, target, addition):
+        table_name = TableNameGenerator.person_timeline(follower)
+        data = HistoryItem(timestamp, action, current, target, addition)
+        self.__cache.prepend_list(table_name, data.encode())
+

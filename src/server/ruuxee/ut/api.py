@@ -7,13 +7,25 @@ import random
 import ruuxee.apis.v1.web
 import ruuxee.models.v1.mock
 import ruuxee.models.v1 as model1
+import ruuxee.utils as utils
 import json
 import time
 import datetime
 import traceback
 import sys
+import threading
 
-class TestApiReturnData(unittest.TestCase):
+class BaseEnvironment(unittest.TestCase):
+    "A helper class to provide common functions for testing."
+    def helper_wait_queue_empty(self, wait_max_secs = 0):
+        wait_count = 0
+        while len(self.queue.queue) != 0:
+            time.sleep(1)
+            wait_count += 1
+            if wait_max_secs > 0 and wait_count > wait_max_secs:
+                return False
+        return True
+
     def setUp(self):
         self.app = ruuxee.Application('ruuxee.config.webui_dev')
         api_page = ruuxee.apis.v1.web.page
@@ -65,6 +77,41 @@ class TestApiReturnData(unittest.TestCase):
     def tearDown(self):
         pass
 
+    def helper_empty_queue(self):
+        for i in range(len(self.queue.queue)):
+            self.queue.pop_queue()
+
+    def helper_get_person(self, readable_id):
+        database = self.app.config["RUUXEE_UT_DATABASE"]
+        for each_person in database.persons:
+            if each_person.readable_id == readable_id:
+                return each_person
+        return None
+
+    def helper_post(self, path):
+        with self.app.test_client() as c:
+            resp = c.post('%s' % path)
+            self.assertEqual(resp.status_code, ruuxee.httplib.OK)
+            data = json.loads(resp.data)
+            status_code = data["status_code"]
+            self.assertEqual(status_code, ruuxee.httplib.OK)
+            return resp
+
+    def helper_get(self, path, return_val = ruuxee.httplib.OK):
+        with self.app.test_client() as c:
+            resp = c.get('%s' % path)
+            self.assertEqual(resp.status_code, return_val)
+            data = json.loads(resp.data)
+            status_code = data["status_code"]
+            self.assertEqual(status_code, return_val)
+            return resp
+
+    def helper_post_message(self, action, source, target, addition):
+        ts = utils.stimestamp()
+        record = "%d:%s:%s:%s:%s" % (ts, action, source, target, addition)
+        self.queue.push_queue(record)
+
+class TestApiReturnData(BaseEnvironment):
     def test_get_person_brief(self):
         with self.app.test_client() as c:
             path = '/apis/web/v1/person-brief'
@@ -201,17 +248,6 @@ class TestApiReturnData(unittest.TestCase):
 
             resp = c.get('%s/inavlid_id' % path)
             self.assertEqual(resp.status_code, ruuxee.httplib.BAD_REQUEST)
-
-    def helper_empty_queue(self):
-        for i in range(len(self.queue.queue)):
-            self.queue.queue.pop()
-
-    def helper_get_person(self, readable_id):
-        database = self.app.config["RUUXEE_UT_DATABASE"]
-        for each_person in database.persons:
-            if each_person.readable_id == readable_id:
-                return each_person
-        return None
 
     def helper_test_common(self, path, from_obj, to_obj):
         """
@@ -579,3 +615,131 @@ class TestApiReturnData(unittest.TestCase):
         self.cache.initialize_list(follow_table)
         self.helper_test_valid(path, model1.ACTION_FOLLOW_TOPIC,\
                                self.to_topic)
+
+
+class TestEndToEndWithMockDb(BaseEnvironment):
+    def setUp(self):
+        BaseEnvironment.setUp(self)
+        # We use a background service
+        self.queue.set_with_worker(True)
+        self.worker = model1.RequestWorker(self.database, self.cache,\
+                                           self.queue)
+        self.processor = threading.Thread(target=self.worker.main_loop)
+        self.processor.start()
+
+    def tearDown(self):
+        self.queue.push_queue(model1.MESSAGE_QUEUE_STOP_SIGN)
+        self.processor.join()
+        BaseEnvironment.setUp(self)
+
+    def test_timeline_ranges(self):
+        """Case: Verify timeline can receive items below in timeline:
+        1. When follow a new person.
+        2. When upvote a post.
+        3. When follow a topic.
+
+        And the following actions do not cause updates in timeline.
+        4. When downvote a post.
+        5. When neutralize a post.
+        6. When unfollow a person.
+
+        All cases here also verify that the order of returned timeline
+        ranges is from latest to oldest.
+
+        Case 7: If passed in data is negative number then it returns
+        error.
+        Case 8: If begin >= end then it returns error.
+        Case 9: If begin or end is not integer then it returns error.
+        """
+        self.helper_empty_queue()
+
+        actions_in_timeline = [
+                model1.ACTION_UPVOTE_POST,
+                model1.ACTION_FOLLOW_TOPIC
+                ]
+
+        source_target_in_timeline = {
+                model1.ACTION_UPVOTE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_FOLLOW_TOPIC: [\
+                        self.to_person_id, self.to_topic_id],
+                }
+
+        actions_out_of_timeline = [
+                model1.ACTION_DOWNVOTE_POST,
+                model1.ACTION_NEUTRALIZE_POST,
+                model1.ACTION_UNFOLLOW_TOPIC,
+                model1.ACTION_FOLLOW_PERSON
+                ]
+        source_target_out_of_timeline = {
+                model1.ACTION_DOWNVOTE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_NEUTRALIZE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_UNFOLLOW_TOPIC: [\
+                        self.to_person_id, self.to_topic_id],
+                model1.ACTION_FOLLOW_PERSON: [\
+                        self.to_person_id, self.from_person_id],
+                }
+
+        with self.app.test_client() as c:
+            # Case
+            # Verify updates from persons followed by current person can
+            # push their updates to current persons' timeline.
+            path = '/apis/web/v1/follow/person'
+            self.helper_post('%s/%s' % (path, self.to_person_id))
+
+            # Case 1-3: items that will be reflected in timeline.
+            timeline_previous_items = 0
+            for each_action in actions_in_timeline:
+                # Assume we have two persons: bourne.zhu and fuzhou.chen.
+                # Actions performed by fuzhou.chen can be seen from timeline
+                # of bourne.zhu.
+                source = source_target_in_timeline[each_action][0]
+                target = source_target_in_timeline[each_action][1]
+                self.helper_post_message(each_action, source, target, "")
+                # Sleep for a while to wait for backend.
+                self.assertEqual(self.helper_wait_queue_empty(3), True)
+                path = '/apis/web/v1/timeline/range/0/100'
+                resp = self.helper_get(path)
+                data = json.loads(resp.data)
+                timeline_items = len(data["data"])
+                delta = timeline_items - timeline_previous_items
+                self.assertEqual(delta, 1)
+                timeline_previous_items = timeline_items
+                self.assertEqual(data["data"][0]["from_visible_id"], source)
+                self.assertEqual(data["data"][0]["action"], each_action)
+                self.assertEqual(data["data"][0]["to_visible_id"], target)
+
+            # Caes 4-6: items that will NOT be reflected in timeline.
+            for each_action in actions_out_of_timeline:
+                # Assume we have two persons: bourne.zhu and fuzhou.chen.
+                # Actions performed by fuzhou.chen can be seen from timeline
+                # of bourne.zhu.
+                source = source_target_out_of_timeline[each_action][0]
+                target = source_target_out_of_timeline[each_action][1]
+                self.helper_post_message(each_action, source, target, "")
+                # Sleep for a while to wait for backend.
+                self.assertEqual(self.helper_wait_queue_empty(3), True)
+                path = '/apis/web/v1/timeline/range/0/100'
+                resp = self.helper_get(path)
+                data = json.loads(resp.data)
+                timeline_items = len(data["data"])
+                delta = timeline_items - timeline_previous_items
+                self.assertEqual(delta, 0)
+
+            # Case 7-9
+            bad_begin_end = [
+                    [ "hello", "100", ruuxee.httplib.BAD_REQUEST ],
+                    [ "0", "world", ruuxee.httplib.BAD_REQUEST ],
+                    [ "-1", "100", ruuxee.httplib.BAD_REQUEST ],
+                    [ "0", "-100", ruuxee.httplib.BAD_REQUEST ],
+                    [ "1.2", "100", ruuxee.httplib.BAD_REQUEST ],
+                    [ "0", "3.7", ruuxee.httplib.BAD_REQUEST ],
+                    [ "100", "0", ruuxee.httplib.METHOD_NOT_ALLOWED ]
+                    ]
+            for each_test_set in bad_begin_end:
+                path = "/apis/web/v1/timeline/range/%s/%s" % \
+                        (each_test_set[0], each_test_set[1])
+                resp = self.helper_get(path, each_test_set[2])
+

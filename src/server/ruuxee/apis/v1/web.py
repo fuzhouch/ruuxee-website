@@ -249,14 +249,17 @@ def delete_comment(comment_visible_id):
     data = core.delete_comment(comment_visible_id)
     return make_json_response(data)
 
-@page.route('/timeline/updates/<last_item_id>', methods=['GET'])
+@page.route('/timeline/range/<begin>/<end>', methods=['GET'])
 @signin_required
-def get_timeline_updates(last_item_id):
-    """def get_timeline_updates(last_item_id): -> Json
+def get_timeline_range(begin, end):
+    """def get_timeline_range(begin, end): -> Json
 
-    Get latest updates of current timeline. It retrieves only the items
-    later than speicified item ID.
+    Get a range of latest updates of current timeline, with offset
+    [begin, end). The latest update always starts from 0.
     """
     core = ruuxee.Application.current_core()
-    data = core.delete_comment(comment_visible_id)
-    return make_json_response(data)
+    session = ruuxee.Application.current_session_manager()
+    this_person_id = session.authenticated_person_visible_id()
+    resp = core.get_timeline_range(this_person_id, begin, end)
+    return make_json_response(resp)
+
