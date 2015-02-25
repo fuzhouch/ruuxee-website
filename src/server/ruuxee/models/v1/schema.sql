@@ -69,7 +69,7 @@ CREATE TABLE ruuxee_topic_v1 (
 
 -- ==================== Part 2: Redis-cached data ===================
 
--- 1. Person's action history (from latest to earlest)
+-- 1. Person's action history (TABLE_NAME_PERSON_ACTIONS)
 --     type = list
 --     name = "pa{person_visible_id}"
 --     value = "{timestamp}:{action_id}:{target_visible_id}"
@@ -102,27 +102,37 @@ CREATE TABLE ruuxee_topic_v1 (
 -- *. The format is incompatible with "add_category_to_topic" and
 --    "remove_topic_from_category". May need special case.
 
--- 2. Person-upvote-post set
+-- 2. Post upvoted by person list (TABLE_NAME_POST_UPVOTE)
 --     type = list
---     name = "pup{post_visible_id}"
+--     name = "pu{post_visible_id}"
 --     value = "{person_visible_id}"
--- 3. Person-downvote-post set
+
+-- 3. Post downvoted by person list (TABLE_NAME_POST_DOWNVOTE)
 --     type = list
---     name = "pdp{post_visible_id}"
+--     name = "pd{post_visible_id}"
 --     value = "{person_visible_id}"
 --
--- 4. Person-follow-person list (latest to earlest)
+-- 4. Person-follow-person list (TABLE_NAME_PERSON_FOLLOW_PERSON)
 --     type = set
 --     name = "pfp{person_visible_id}"
 --     value = "{to_person_visible_id}"
 
--- 5. Person-follow-topic list (latest to earlest)
+-- 5. Person-follow-topic list (TABLE_NAME_PERSON_FOLLOW_TOPIC)
 --     type = set
 --     name = "pft{person_visible_id}"
 --     value = "{to_topic_visible_id}"
 
+-- 6. Person-followed-by-person list (TABLE_NAME_PERSON_FOLLOWED_BY_PERSON)
+--     type = set
+--     name = "pfbp{to_person_visible_id}"
+--     value = "{from_person_visible_id}"
 
--- 6. Person's timeline (from latest to earlest)
+-- 7. Topic-followed-by-person list (TABLE_NAME_TOPIC_FOLLOWED_BY_PERSON)
+--     type = set
+--     name = "tfbp{to_person_visible_id}"
+--     value = "{from_person_visible_id}"
+
+-- 8. Person's timeline (from latest to earlest)
 --     type = list
 --     name = "pt{person_visible_id}"
 --     value = {timestamp}:{action_id}:{from_person_visible_id}:{to_target_visible_id}
@@ -132,9 +142,9 @@ CREATE TABLE ruuxee_topic_v1 (
 --
 --         when person_11223344 do action_k on post_22334455:
 --             for each_person_id in pfp11223344:
---                 pt{each_person_id}.insert_front(timestamp,
+--                 pt{each_person_id}.prepend_list(timestamp,
 --                                                 "k",11223344,22334455)
-
+-- TO BE IMPLEMENTED:
 -- 7. Person's login/logout status
 --     type = set
 --     name = "pls"
@@ -144,6 +154,7 @@ CREATE TABLE ruuxee_topic_v1 (
 --     type = set
 --     name = "pls{person_visible_id}"
 --     value = "{encrypted_session}:{expire_timestamp}:{source}:{platform}"
+
 -- NOTE
 -- a. We must assume multple login sessions from different browsers or
 --    apps.
