@@ -64,7 +64,7 @@ TABLE_NAME_PERSON_FOLLOW_PERSON      = "pfp"
 TABLE_NAME_PERSON_FOLLOWED_BY_PERSON = "pfbp"
 TABLE_NAME_PERSON_TIMELINE           = "pt"
 TABLE_NAME_PERSON_FOLLOW_TOPIC       = "pft"
-TABLE_NAME_TOPIC_FOLLOWED_BY_PERSON  = "pfbt"
+TABLE_NAME_TOPIC_FOLLOWED_BY_PERSON  = "tfbp"
 TABLE_NAME_POST_UPVOTE               = "pu"
 TABLE_NAME_POST_DOWNVOTE             = "pd"
 
@@ -160,23 +160,25 @@ class HistoryItem(object):
 
     @staticmethod
     def create_from_record(record):
-        data = record.split(":")
-        assert len(data) == 5
-        stimestamp = data[0]
-        action = data[1]
-        source = data[2]
-        target = data[3]
-        addition = data[4]
-        return HistoryItem(stimestamp, action, source, target, addition)
+        item = HistoryItem("", "", "", "", "")
+        item.decode(record)
+        return item
 
     def decode(self, record):
         data = record.split(":")
-        assert len(data) == 5
-        self.__stimestamp = data[0]
-        self.__action = data[1]
-        self.__source = data[2]
-        self.__target = data[3]
-        self.__addition = data[4]
+        sections = len(data)
+        if sections == 5:
+            self.__stimestamp = data[0]
+            self.__action = data[1]
+            self.__source = data[2]
+            self.__target = data[3]
+            self.__addition = data[4]
+        elif sections == 3:
+            self.__stimestamp = data[0]
+            self.__action = data[1]
+            self.__target = data[2]
+        else:
+            raise ValueError("Bad data: %s" % record)
 
     def encode(self):
         record = "%d:%s:%s:%s:%s" % (self.__stimestamp,\
@@ -184,6 +186,16 @@ class HistoryItem(object):
                                      self.__source,
                                      self.__target,
                                      self.__addition)
+        return record
+
+    def encode_short(self):
+        """def encode_short(self) -> string record
+
+        Encode data in short form. Used with notification items.
+        """
+        record = "%d:%s:%s:" % (self.__stimestamp,\
+                                self.__action,
+                                self.__target)
         return record
 
     @property
