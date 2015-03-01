@@ -81,10 +81,15 @@ class Logging():
         @functools.wraps(f)
         def enter_leave_wrap_func(*args, **kwargs):
             # Different threads will hold different _tl
-            if not "current_function_name" in _tl.__dict__:
+            backup = None
+            try:
+                backup = _tl.current_function_name
+            except Exception:
+                # This is a different thread, we need to initialize
+                # thread local data.
                 _tl.current_function_name = ""
+                backup = _tl.current_function_name
 
-            backup = _tl.current_function_name
             _tl.current_function_name = f.__name__
             logging.debug("%s: enter" % f.__name__)
             ret = f(*args, **kwargs)
