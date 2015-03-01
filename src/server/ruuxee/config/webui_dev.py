@@ -10,6 +10,7 @@
 
 import ruuxee.models.v1.mock as mockv1
 import ruuxee.models.v1 as v1
+import os
 
 #
 # For web UI developers, we use fake data to minimize configuration.
@@ -21,10 +22,11 @@ cache = mockv1.Cache()
 queue = mockv1.MessageQueue()
 database = mockv1.Database(cache)
 RUUXEE_CORE = v1.Core(database, cache, queue)
-RUUXEE_SESSION_MANAGER = mockv1.AlwaysBourneZhuWebSession(database)
+RUUXEE_SESSION_MANAGER = mockv1.NoPasswordCheckSession(database)
 
 # The following configurations can only be visible in unit test mode.
 # Production environment does not have them.
 RUUXEE_UT_DATABASE = database
 RUUXEE_UT_CACHE = cache
 RUUXEE_UT_QUEUE = queue
+RUUXEE_FLASK_SESSION_SECRET = os.urandom(24)

@@ -27,7 +27,7 @@ class BaseEnvironment(unittest.TestCase):
         return True
 
     def setUp(self):
-        self.app = ruuxee.Application('ruuxee.config.webui_dev')
+        self.app = ruuxee.Application('ruuxee.config.unittest')
         api_page = ruuxee.apis.v1.web.page
         self.app.register_blueprint(api_page, url_prefix='/apis/web/v1')
 

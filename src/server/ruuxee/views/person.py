@@ -4,8 +4,9 @@
 "A page to represent user information."
 import ruuxee
 import flask
+import ruuxee.views.utils as vutils
 
-page = ruuxee.View('person')
+page = ruuxee.View("person")
 
 @page.route('/<person_id>')
 def get_person_info(person_id):
@@ -19,3 +20,4 @@ def get_person_info(person_id):
     if data is None: # Data not found.
         return flask.render_template('person.html')
     return flask.render_template('person.html', **data)
+

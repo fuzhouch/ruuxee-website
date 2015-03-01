@@ -54,6 +54,7 @@ def signin_required(f):
         session = ruuxee.Application.current_session_manager()
         success = session.validate(flask.request)
         if not success: # Failed to authenticate.
+            print("HERE!")
             resp = flask.jsonify(status_code=ruuxee.httplib.UNAUTHORIZED)
             resp.status_code = ruuxee.httplib.UNAUTHORIZED
             return resp

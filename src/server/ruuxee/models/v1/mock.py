@@ -123,7 +123,7 @@ class Database(object):
             p.name = each_person["name"]
             p.readable_id = each_person["readable_id"]
             p.email = each_person["readable_id"] + "@ruuxee.com"
-            p.password = p.visible_id + p.readable_id
+            p.password = p.readable_id
             p.password_sha1 = hashlib.sha1(p.password).hexdigest()
             p.signup_timestamp = \
                     time.time() + random.randint(100000, 500000)
@@ -134,7 +134,7 @@ class Database(object):
             p.city = random.choice(Database.cities)
             p.country = random.choice(Database.countries)
             self.__persons.append(p)
-        for i in range(100, random.randint(100, 200)):
+        for i in range(100, random.randint(120, 200)):
             po = Post()
             po.visible_id = self.__get_random_visible_id_str()
             po.status = random.choice(model1.ALL_POST_STATUS)
@@ -284,7 +284,7 @@ class AlwaysBourneZhuWebSession(object):
 
     The fake web session always consider user as bourne.zhu. So web UI
     developers can test single page, without the needs of really doing
-    any logon session.
+    any logon session. This is very useful when running unittest.
     """
     def __init__(self, database):
         self.__db = database
@@ -297,8 +297,61 @@ class AlwaysBourneZhuWebSession(object):
 
     def authenticated_person_visible_id(self):
         return self.__db.persons[0].visible_id
+
+    def authenticated_person_readable_id(self):
+        return self.__db.persons[0].readable_id
+
     def authenticated_person_name(self):
         return self.__db.persons[0].name
+
+class NoPasswordCheckSession(object):
+    """A fake web session allow people authentication, with default
+    value if you don't do so.
+    
+    The login session can be changed when user go through login process.
+    Or, if the first page does not do this, return default bourne.zhu."""
+    def __init__(self, database):
+        self.__db = database
+        self.__authenticated_person_visible_id = None
+        self.__authenticated_person_readable_id = None
+        self.__authenticated_person_name = None
+        pass
+
+    def validate(self, request):
+        # In real production we may choose to use Email as login name
+        login_name = request.form["username"]
+        # A fake session manager never check password. Just to change
+        # user.
+        fields = [ "visible_id", "readable_id", "name" ]
+        data = self.__db.query_person("readable_id", login_name, fields)
+        if data is None:
+            return False
+        assert len(data) == 1
+        self.__authenticated_person_visible_id = data[0]["visible_id"]
+        self.__authenticated_person_readable_id = data[0]["readable_id"]
+        self.__authenticated_person_name = data[0]["name"]
+        return True
+
+    def logout(self):
+        self.__authenticated_person_visible_id = None
+        self.__authenticated_person_readable_id = None
+        self.__authenticated_person_name = None
+
+    def authenticated_person_visible_id(self):
+        if self.__authenticated_person_visible_id is None:
+            return self.__db.persons[0].visible_id
+        return self.__authenticated_person_visible_id
+
+    def authenticated_person_readable_id(self):
+        if self.__authenticated_person_readable_id is None:
+            return self.__db.persons[0].readable_id
+        return self.__authenticated_person_readable_id
+
+    def authenticated_person_name(self):
+        if self.__authenticated_person_name is None:
+            return self.__db.persons[0].name
+        return self.__authenticated_person_name
+
 
 class AlwaysFalseWebSession(object):
     """A fake WebSession that always return login failure.
