@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright @2015 by ruuxee.com, All rights reserved.
+# Copyright @2015 by r.co, All rights reserved.
 """A set of mock object to represent object model."""
 
 import ruuxee.models.v1 as model1
@@ -122,7 +122,7 @@ class Database(object):
                 p.status = random.choice(model1.ALL_PERSON_STATUS)
             p.name = each_person["name"]
             p.readable_id = each_person["readable_id"]
-            p.email = each_person["readable_id"] + "@ruuxee.com"
+            p.email = each_person["readable_id"] + "@r.co"
             p.password = p.readable_id
             p.password_sha1 = hashlib.sha1(p.password).hexdigest()
             p.signup_timestamp = \

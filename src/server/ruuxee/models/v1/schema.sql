@@ -307,6 +307,31 @@ CREATE TABLE ruuxee_topic_v1 (
 --            }
 --       ]
 --
+-- 12. GET http://www.ruuxee.com/api/web/v1/notification/range/<begin>/<end>
+--   Purpose
+--       Get notification range started from latest. A notification
+--       is the action performed by other person but target current
+--       logged on user.
+--   Status
+--       status_code: HTTP code. All below will miss if code is not 200.
+--       data: A list of items below...
+--       [
+--          {
+--            timestamp: When this action Happens.
+--            action: ID of action
+--            action_display: Display name of action.
+--            "from"
+--            {
+--                same fields of get_person_brief
+--            }
+--            "to"
+--            {
+--                same fields of get_topic_brief, get_person_brief or
+--                get_post_brief
+--            }
+--       ]
+--
+--
 -- NOTE
 -- a. All add* operations must use PUT to retrieve visible_ids.
 -- b. The original person visible ID is ALWAYS invisible because they

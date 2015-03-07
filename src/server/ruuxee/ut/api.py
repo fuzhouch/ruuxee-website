@@ -20,8 +20,8 @@ class BaseEnvironment(unittest.TestCase):
     def helper_wait_queue_empty(self, wait_max_secs = 0):
         wait_count = 0
         while len(self.queue.queue) != 0:
-            time.sleep(1)
-            wait_count += 1
+            time.sleep(0.5)
+            wait_count += 0.5
             if wait_max_secs > 0 and wait_count > wait_max_secs:
                 return False
         return True
@@ -193,12 +193,14 @@ class TestApiReturnData(BaseEnvironment):
                     self.assertEqual(data["brief_text"], \
                                      each_post.brief_text)
                     self.assertEqual("author_name" in data, True)
+                    self.assertEqual("visible_id" in data, True)
+                    self.assertEqual(data["visible_id"], visible_id)
                     if data["is_anonymous"]:
                         self.assertEqual(data["author_name"], \
                                  ruuxee.models.v1.ANONYMOUS_PERSON_NAME)
                         self.assertEqual("author_visible_id" in data, False)
                         self.assertEqual("author_readable_id" in data, False)
-                        self.assertEqual(len(data), 6)
+                        self.assertEqual(len(data), 7)
                     else:
                         self.assertEqual("author_visible_id" in data, True)
                         self.assertEqual("author_readable_id" in data, True)
@@ -211,7 +213,7 @@ class TestApiReturnData(BaseEnvironment):
                         self.assertEqual(found != None, True)
                         self.assertEqual(found[0]["name"],\
                                          data["author_name"])
-                        self.assertEqual(len(data), 8)
+                        self.assertEqual(len(data), 9)
                 elif status == ruuxee.models.v1.STATUS_REVIEWING:
                     # Reviewing posts:
                     # 1. The title and contents are hidden.
@@ -221,12 +223,14 @@ class TestApiReturnData(BaseEnvironment):
                     self.assertEqual(data["title"], \
                                      ruuxee.models.v1.REVIEWING_TITLE)
                     self.assertEqual("author_name" in data, True)
+                    self.assertEqual("visible_id" in data, True)
+                    self.assertEqual(data["visible_id"], visible_id)
                     if data["is_anonymous"]:
                         self.assertEqual(data["author_name"], \
                                  ruuxee.models.v1.ANONYMOUS_PERSON_NAME)
                         self.assertEqual("author_visible_id" in data, False)
                         self.assertEqual("author_readable_id" in data, False)
-                        self.assertEqual(len(data), 6)
+                        self.assertEqual(len(data), 7)
                     else:
                         self.assertEqual("author_visible_id" in data, True)
                         self.assertEqual("author_readable_id" in data, True)
@@ -239,7 +243,7 @@ class TestApiReturnData(BaseEnvironment):
                         self.assertEqual(found != None, True)
                         self.assertEqual(found[0]["name"],\
                                          data["author_name"])
-                        self.assertEqual(len(data), 8)
+                        self.assertEqual(len(data), 9)
                 elif status == ruuxee.models.v1.STATUS_SUSPENDED:
                     # Suspended posts:
                     # 1. The title and contents are hidden.
@@ -249,12 +253,14 @@ class TestApiReturnData(BaseEnvironment):
                     self.assertEqual(data["title"], \
                                      ruuxee.models.v1.SUSPENDED_TITLE)
                     self.assertEqual("author_name" in data, True)
+                    self.assertEqual("visible_id" in data, True)
+                    self.assertEqual(data["visible_id"], visible_id)
                     if data["is_anonymous"]:
                         self.assertEqual(data["author_name"], \
                                  ruuxee.models.v1.ANONYMOUS_PERSON_NAME)
                         self.assertEqual("author_visible_id" in data, False)
                         self.assertEqual("author_readable_id" in data, False)
-                        self.assertEqual(len(data), 6)
+                        self.assertEqual(len(data), 7)
                     else:
                         self.assertEqual("author_visible_id" in data, True)
                         self.assertEqual("author_readable_id" in data, True)
@@ -265,7 +271,7 @@ class TestApiReturnData(BaseEnvironment):
                                     each_post.author_visible_id, ['name'])
                         self.assertEqual(found != None, True)
                         self.assertEqual(found[0]["name"], data["author_name"])
-                        self.assertEqual(len(data), 8)
+                        self.assertEqual(len(data), 9)
                 elif status == ruuxee.models.v1.STATUS_DELETED:
                     self.assertEqual(len(data), 2)
                 else:
@@ -658,96 +664,200 @@ class TestEndToEndWithMockDb(BaseEnvironment):
         self.processor.join()
         BaseEnvironment.setUp(self)
 
-    def test_timeline_ranges(self):
-        """Case: Verify timeline can receive items below in timeline:
-        1. When follow a new person.
-        2. When upvote a post.
-        3. When follow a topic.
-
-        And the following actions do not cause updates in timeline.
-        4. When downvote a post.
-        5. When neutralize a post.
-        6. When unfollow a person.
-
-        All cases here also verify that the order of returned timeline
-        ranges is from latest to oldest.
-
-        Case 7: If passed in data is negative number then it returns
-        error.
-        Case 8: If begin >= end then it returns error.
-        Case 9: If begin or end is not integer then it returns error.
+    def test_notifications(self):
+        """Case 1: Notification is sent to target person's notification
+        list.
+        1.1 When target person is followed.
+        1.2 When a post of target person is upvoted.
+        
+        Case 2: Repeated behavior will NOT trigger notification.
+        Case 3: Some actions will not trigger notifications.
+        2.1 When downvote or neutralize a post.
+        2.2 When follow or unfollow a topic.
+        2.3 When unfollow a person.
         """
         self.helper_empty_queue()
 
-        actions_in_timeline = [
-                model1.ACTION_UPVOTE_POST,
-                model1.ACTION_FOLLOW_TOPIC
-                ]
-
-        source_target_in_timeline = {
-                model1.ACTION_UPVOTE_POST: [\
-                        self.to_person_id, self.from_post_id],
-                model1.ACTION_FOLLOW_TOPIC: [\
-                        self.to_person_id, self.to_topic_id],
-                }
-
-        actions_out_of_timeline = [
+        actions_no_notifications = [
                 model1.ACTION_DOWNVOTE_POST,
                 model1.ACTION_NEUTRALIZE_POST,
-                model1.ACTION_UNFOLLOW_TOPIC,
-                model1.ACTION_FOLLOW_PERSON
+                model1.ACTION_UNFOLLOW_PERSON,
+                model1.ACTION_FOLLOW_TOPIC,
+                model1.ACTION_UNFOLLOW_TOPIC
                 ]
-        source_target_out_of_timeline = {
-                model1.ACTION_DOWNVOTE_POST: [\
-                        self.to_person_id, self.from_post_id],
-                model1.ACTION_NEUTRALIZE_POST: [\
-                        self.to_person_id, self.from_post_id],
-                model1.ACTION_UNFOLLOW_TOPIC: [\
-                        self.to_person_id, self.to_topic_id],
-                model1.ACTION_FOLLOW_PERSON: [\
-                        self.to_person_id, self.from_person_id],
+
+        path_no_notifications = {
+                model1.ACTION_DOWNVOTE_POST: '/apis/web/v1/downvote/post',
+                model1.ACTION_NEUTRALIZE_POST: '/apis/web/v1/neutralize/post',
+                model1.ACTION_UNFOLLOW_PERSON: '/apis/web/v1/unfollow/person',
+                model1.ACTION_FOLLOW_TOPIC: '/apis/web/v1/follow/topic',
+                model1.ACTION_UNFOLLOW_TOPIC: '/apis/web/v1/unfollow/topic'
                 }
 
+        target_no_notifications = {
+                model1.ACTION_DOWNVOTE_POST: self.to_post_id,
+                model1.ACTION_NEUTRALIZE_POST: self.to_post_id,
+                model1.ACTION_UNFOLLOW_PERSON: self.to_person_id,
+                model1.ACTION_FOLLOW_TOPIC: self.to_topic_id,
+                model1.ACTION_UNFOLLOW_TOPIC: self.to_topic_id,
+                }
+
+        actions_in_notifications = [
+                model1.ACTION_UPVOTE_POST,
+                model1.ACTION_FOLLOW_PERSON
+                ]
+
+        path_in_notifications = {
+                model1.ACTION_UPVOTE_POST: '/apis/web/v1/upvote/post',
+                model1.ACTION_FOLLOW_PERSON: '/apis/web/v1/follow/person'
+                }
+
+        target_in_notifications = {
+                model1.ACTION_UPVOTE_POST: self.to_post_id,
+                model1.ACTION_FOLLOW_PERSON: self.to_person_id
+                }
+
+        actions_clear_env = [
+                model1.ACTION_NEUTRALIZE_POST,
+                model1.ACTION_UNFOLLOW_PERSON
+                ]
+
+        path_clear_env = {
+                model1.ACTION_NEUTRALIZE_POST: '/apis/web/v1/neutralize/post',
+                model1.ACTION_UNFOLLOW_PERSON: '/apis/web/v1/unfollow/person'
+                }
+
+        target_clear_env = {
+                model1.ACTION_NEUTRALIZE_POST: self.to_post_id,
+                model1.ACTION_UNFOLLOW_PERSON: self.to_person_id
+                }
+
+        # Clear environment first.
         with self.app.test_client() as c:
+            for each_action in actions_clear_env:
+                path = path_clear_env[each_action]
+                target_id = target_clear_env[each_action]
+                resp = self.helper_post('%s/%s' % (path, target_id))
+                data = json.loads(resp.data)
+            self.assertEqual(self.helper_wait_queue_empty(2), True)
+
+        # Case 3: Other actions will not trigger notifications.
+        with self.app.test_client() as c:
+            for each_action in actions_no_notifications:
+                path = path_no_notifications[each_action]
+                target_id = target_no_notifications[each_action]
+                ts = utils.stimestamp()
+                resp = self.helper_post('%s/%s' % (path, target_id))
+                data = json.loads(resp.data)
+                self.assertEqual(self.helper_wait_queue_empty(2), True)
+                # We will not be able to see new notifications.
+                pid = self.to_person_id
+                table = model1.TableNameGenerator.person_notification(pid)
+                record = self.cache.get_list_range(table, 0, 10)
+                # There are only two notifications, from previous Case 1
+                # execution.
+                try:
+                    self.assertEqual(len(record), 0)
+                except Exception as e:
+                    print("code: %s" % each_action)
+                    print(record)
+                    raise e
+
+        # Case 1: Actions that can invoke notification will take effect.
+        with self.app.test_client() as c:
+            for each_action in actions_in_notifications:
+                path = path_in_notifications[each_action]
+                target_id = target_in_notifications[each_action]
+                ts = utils.stimestamp()
+                resp = self.helper_post('%s/%s' % (path, target_id))
+                data = json.loads(resp.data)
+                self.assertEqual(self.helper_wait_queue_empty(2), True)
+                # Now we should be able to see notifications in
+                # to_person_id's list.
+                pid = self.to_person_id
+                table = model1.TableNameGenerator.person_notification(pid)
+                record = self.cache.get_list_range(table, 0, 1)
+                item = model1.HistoryItem.create_from_record(record[0])
+                self.assertEqual(item.action, each_action)
+                self.assertEqual(item.source_id, self.from_person_id)
+                self.assertEqual(item.target_id, target_id)
+                self.assertEqual(item.addition_id, "")
+                self.assertEqual(int(item.stimestamp) - ts <= 1, True)
+
+        # Case 2: Repeated action can't invoke notifications, even
+        # valid.
+        with self.app.test_client() as c:
+            for each_action in actions_in_notifications:
+                path = path_in_notifications[each_action]
+                target_id = target_in_notifications[each_action]
+                ts = utils.stimestamp()
+                resp = self.helper_post('%s/%s' % (path, target_id))
+                data = json.loads(resp.data)
+                self.assertEqual(self.helper_wait_queue_empty(3), True)
+                # We will not be able to see new notifications.
+                pid = self.to_person_id
+                table = model1.TableNameGenerator.person_notification(pid)
+                record = self.cache.get_list_range(table, 0, 10)
+                # There are only two notifications, from previous Case 1
+                # execution.
+                self.assertEqual(len(record), 2)
+
+    def helper_test_timeline_notification_ranges(self, operation,
+            actions_in, source_target_in, actions_out, source_target_out):
+        self.helper_empty_queue()
+        with self.app.test_client() as c:
+            # Setup enviroment.
+            path = '/apis/web/v1/follow/person'
+            self.helper_post('%s/%s' % (path, self.to_person_id))
+            self.assertEqual(self.helper_wait_queue_empty(2), True)
+            # Clear this notification or it will affect tasks by
+            # dropping an item in notification list.
+            pid = self.to_person_id
+            table_name = model1.TableNameGenerator.person_notification(pid)
+            self.cache.initialize_list(table_name)
+            pid = self.from_person_id
+            table_name = model1.TableNameGenerator.person_timeline(pid)
+            self.cache.initialize_list(table_name)
+
             # Case
             # Verify updates from persons followed by current person can
             # push their updates to current persons' timeline.
-            path = '/apis/web/v1/follow/person'
-            self.helper_post('%s/%s' % (path, self.to_person_id))
 
             # Case 1-3: items that will be reflected in timeline.
             timeline_previous_items = 0
-            for each_action in actions_in_timeline:
+            for each_action in actions_in:
                 # Assume we have two persons: bourne.zhu and fuzhou.chen.
                 # Actions performed by fuzhou.chen can be seen from timeline
                 # of bourne.zhu.
-                source = source_target_in_timeline[each_action][0]
-                target = source_target_in_timeline[each_action][1]
+                source = source_target_in[each_action][0]
+                target = source_target_in[each_action][1]
                 self.helper_post_message(each_action, source, target, "")
                 # Sleep for a while to wait for backend.
-                self.assertEqual(self.helper_wait_queue_empty(3), True)
-                path = '/apis/web/v1/timeline/range/0/100'
+                self.assertEqual(self.helper_wait_queue_empty(2), True)
+                path = '/apis/web/v1/%s/range/0/100' % operation
                 resp = self.helper_get(path)
                 data = json.loads(resp.data)
                 timeline_items = len(data["data"])
                 delta = timeline_items - timeline_previous_items
                 self.assertEqual(delta, 1)
                 timeline_previous_items = timeline_items
-                self.assertEqual(data["data"][0]["from_visible_id"], source)
+                from_obj = data["data"][0]["from"]
+                to_obj = data["data"][0]["to"]
                 self.assertEqual(data["data"][0]["action"], each_action)
-                self.assertEqual(data["data"][0]["to_visible_id"], target)
+                self.assertEqual(from_obj["visible_id"], source)
+                self.assertEqual(to_obj["visible_id"], target)
 
             # Caes 4-6: items that will NOT be reflected in timeline.
-            for each_action in actions_out_of_timeline:
+            for each_action in actions_out:
                 # Assume we have two persons: bourne.zhu and fuzhou.chen.
                 # Actions performed by fuzhou.chen can be seen from timeline
                 # of bourne.zhu.
-                source = source_target_out_of_timeline[each_action][0]
-                target = source_target_out_of_timeline[each_action][1]
+                source = source_target_out[each_action][0]
+                target = source_target_out[each_action][1]
                 self.helper_post_message(each_action, source, target, "")
                 # Sleep for a while to wait for backend.
-                self.assertEqual(self.helper_wait_queue_empty(3), True)
-                path = '/apis/web/v1/timeline/range/0/100'
+                self.assertEqual(self.helper_wait_queue_empty(2), True)
+                path = '/apis/web/v1/%s/range/0/100' % operation
                 resp = self.helper_get(path)
                 data = json.loads(resp.data)
                 timeline_items = len(data["data"])
@@ -765,7 +875,137 @@ class TestEndToEndWithMockDb(BaseEnvironment):
                     [ "100", "0", ruuxee.httplib.METHOD_NOT_ALLOWED ]
                     ]
             for each_test_set in bad_begin_end:
-                path = "/apis/web/v1/timeline/range/%s/%s" % \
-                        (each_test_set[0], each_test_set[1])
+                path = "/apis/web/v1/%s/range/%s/%s" % \
+                        (operation, each_test_set[0], each_test_set[1])
                 resp = self.helper_get(path, each_test_set[2])
 
+            # Cleanup enviroment.
+            path = '/apis/web/v1/unfollow/person'
+            self.helper_post('%s/%s' % (path, self.to_person_id))
+            self.assertEqual(self.helper_wait_queue_empty(3), True)
+
+    def test_notification_ranges(self):
+        """Case: Verify notification can receive items below in timeline:
+        1. When followed by a person.
+        2. When post is updated by a person.
+
+        And the following actions do not cause updates in timeline.
+        3. When downvote a post.
+        4. When neutralize a post.
+        5. When unfollow a person.
+        6. When follow a topic.
+        7. When unfollow a topic.
+
+        All cases here also verify that the order of returned timeline
+        ranges is from latest to oldest.
+
+        Case 8: If passed in data is negative number then it returns
+        error.
+        Case 9: If begin >= end then it returns error.
+        Case 10: If begin or end is not integer then it returns error."""
+
+        actions_in_notification = [
+                model1.ACTION_UPVOTE_POST,
+                model1.ACTION_FOLLOW_PERSON
+                ]
+        # TODO Will be updated when supporting adding
+        # post/topic/comments. See ruuxee.model.v1.ALL_NOTIFICATION_ACTIONS
+
+        source_target_in_notification = {
+                model1.ACTION_UPVOTE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_FOLLOW_PERSON: [\
+                        self.to_person_id, self.from_person_id],
+                }
+
+        actions_out_of_notification = [
+                model1.ACTION_DOWNVOTE_POST,
+                model1.ACTION_NEUTRALIZE_POST,
+                model1.ACTION_UNFOLLOW_PERSON,
+                model1.ACTION_FOLLOW_TOPIC,
+                model1.ACTION_UNFOLLOW_TOPIC
+                ]
+
+        source_target_out_of_notification = {
+                model1.ACTION_DOWNVOTE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_NEUTRALIZE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_UNFOLLOW_PERSON: [\
+                        self.to_person_id, self.from_person_id],
+                model1.ACTION_FOLLOW_TOPIC: [\
+                        self.to_person_id, self.to_topic_id],
+                model1.ACTION_UNFOLLOW_TOPIC: [\
+                        self.to_person_id, self.to_topic_id],
+                }
+
+        self.helper_test_timeline_notification_ranges(
+                "notification",
+                actions_in_notification,
+                source_target_in_notification,
+                actions_out_of_notification,
+                source_target_out_of_notification)
+        # Clear all data during test.
+        pid = self.from_person_id
+        table = model1.TableNameGenerator.person_notification(pid)
+        record = self.cache.initialize_list(table)
+
+    def test_timeline_ranges(self):
+        """Case: Verify timeline can receive items below in timeline:
+        1. When follow a new person.
+        2. When upvote a post.
+        3. When follow a topic.
+
+        And the following actions do not cause updates in timeline.
+        4. When downvote a post.
+        5. When neutralize a post.
+        6. When unfollow a person.
+
+        All cases here also verify that the order of returned timeline
+        ranges is from latest to oldest.
+
+        Case 7: If passed in data is negative number then it returns
+        error.
+        Case 8: If begin >= end then it returns error.
+        Case 9: If begin or end is not integer then it returns error."""
+        actions_in_timeline = [
+                model1.ACTION_UPVOTE_POST,
+                model1.ACTION_FOLLOW_TOPIC
+                ]
+        # TODO Will be updated when supporting adding
+        # post/topic/comments. See ruuxee.model.v1.ALL_TIMELINE_ACTIONS
+
+        source_target_in_timeline = {
+                model1.ACTION_UPVOTE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_FOLLOW_TOPIC: [\
+                        self.to_person_id, self.to_topic_id],
+                }
+
+        actions_out_of_timeline = [
+                model1.ACTION_DOWNVOTE_POST,
+                model1.ACTION_NEUTRALIZE_POST,
+                model1.ACTION_UNFOLLOW_TOPIC,
+                model1.ACTION_FOLLOW_PERSON
+                ]
+
+        source_target_out_of_timeline = {
+                model1.ACTION_DOWNVOTE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_NEUTRALIZE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_UNFOLLOW_TOPIC: [\
+                        self.to_person_id, self.to_topic_id],
+                model1.ACTION_FOLLOW_PERSON: [\
+                        self.to_person_id, self.from_person_id],
+                }
+        self.helper_test_timeline_notification_ranges(
+                "timeline",
+                actions_in_timeline,
+                source_target_in_timeline,
+                actions_out_of_timeline,
+                source_target_out_of_timeline)
+        # Clear all data during test.
+        pid = self.from_person_id
+        table = model1.TableNameGenerator.person_timeline(pid)
+        record = self.cache.initialize_list(table)
