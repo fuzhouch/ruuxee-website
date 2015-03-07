@@ -220,7 +220,9 @@ CREATE TABLE ruuxee_topic_v1 (
 --           STATUS_DELETED = 5
 --       visible_id: visible ID of given post,
 --       is_anonymous: Indicate if author is anonymous. 1 or 0.
+--       author_name: Name of author. Not shown when is_anonymous == 1.
 --       author_visible_id: Visible ID of author.
+--       author_readable_id: Readable ID of author.
 --       title: Title of post
 --       brief_text: A short brief of post.
 --
