@@ -146,8 +146,26 @@ class TestApiReturnData(BaseEnvironment):
                                  each_person.readable_id)
                 self.assertEqual(data["status_code"], ruuxee.httplib.OK)
                 self.assertEqual(len(data), 5)
+            resp = c.get('%s/inavlid_id' % path)
+            self.assertEqual(resp.status_code, ruuxee.httplib.BAD_REQUEST)
 
-
+    def test_get_topic_brief(self):
+        with self.app.test_client() as c:
+            path = '/apis/web/v1/topic-brief'
+            core = self.app.config["RUUXEE_CORE"]
+            # Only for fake objects we can get list of persons.
+            # Production database may not expose db property.
+            for each_topic in core.db.topics:
+                visible_id = each_topic.visible_id
+                resp = c.get('%s/%s' % (path, visible_id))
+                self.assertEqual(resp.status_code, ruuxee.httplib.OK)
+                self.assertEqual(resp.content_encoding, 'utf-8')
+                data = json.loads(resp.data)
+                self.assertEqual(data['title'], each_topic.title)
+                self.assertEqual(data['description'], each_topic.description)
+                self.assertEqual(data['visible_id'], each_topic.visible_id)
+                self.assertEqual(data["status_code"], ruuxee.httplib.OK)
+                self.assertEqual(len(data), 4)
             resp = c.get('%s/inavlid_id' % path)
             self.assertEqual(resp.status_code, ruuxee.httplib.BAD_REQUEST)
 
@@ -174,11 +192,14 @@ class TestApiReturnData(BaseEnvironment):
                     self.assertEqual(data["title"], each_post.title)
                     self.assertEqual(data["brief_text"], \
                                      each_post.brief_text)
+                    self.assertEqual("author_name" in data, True)
                     if data["is_anonymous"]:
                         self.assertEqual(data["author_name"], \
                                  ruuxee.models.v1.ANONYMOUS_PERSON_NAME)
+                        self.assertEqual("author_visible_id" in data, False)
+                        self.assertEqual(len(data), 6)
                     else:
-                        self.assertEqual("author_name" in data, True)
+                        self.assertEqual("author_visible_id" in data, True)
                         # Author name is kinds of complicated. The
                         # returned object contains only author_name. We
                         # must map it to real name.
@@ -188,8 +209,7 @@ class TestApiReturnData(BaseEnvironment):
                         self.assertEqual(found != None, True)
                         self.assertEqual(found[0]["name"],\
                                          data["author_name"])
-
-                    self.assertEqual(len(data), 6)
+                        self.assertEqual(len(data), 7)
                 elif status == ruuxee.models.v1.STATUS_REVIEWING:
                     # Reviewing posts:
                     # 1. The title and contents are hidden.
@@ -203,8 +223,9 @@ class TestApiReturnData(BaseEnvironment):
                         self.assertEqual(data["author_name"], \
                                  ruuxee.models.v1.ANONYMOUS_PERSON_NAME)
                         self.assertEqual("author_visible_id" in data, False)
+                        self.assertEqual(len(data), 6)
                     else:
-                        self.assertEqual("author_name" in data, True)
+                        self.assertEqual("author_visible_id" in data, True)
                         # Author name is kinds of complicated. The
                         # returned object contains only author_name. We
                         # must map it to real name.
@@ -214,7 +235,7 @@ class TestApiReturnData(BaseEnvironment):
                         self.assertEqual(found != None, True)
                         self.assertEqual(found[0]["name"],\
                                          data["author_name"])
-                    self.assertEqual(len(data), 6)
+                        self.assertEqual(len(data), 7)
                 elif status == ruuxee.models.v1.STATUS_SUSPENDED:
                     # Suspended posts:
                     # 1. The title and contents are hidden.
@@ -228,18 +249,18 @@ class TestApiReturnData(BaseEnvironment):
                         self.assertEqual(data["author_name"], \
                                  ruuxee.models.v1.ANONYMOUS_PERSON_NAME)
                         self.assertEqual("author_visible_id" in data, False)
+                        self.assertEqual(len(data), 6)
                     else:
                         self.assertEqual("author_name" in data, True)
+                        self.assertEqual("author_visible_id" in data, True)
                         # Author name is kinds of complicated. The
                         # returned object contains only author_name. We
                         # must map it to real name.
                         found = core.db.query_person('visible_id',\
-                                            each_post.author_visible_id,\
-                                                           ['name'])
+                                    each_post.author_visible_id, ['name'])
                         self.assertEqual(found != None, True)
-                        self.assertEqual(found[0]["name"],\
-                                         data["author_name"])
-                    self.assertEqual(len(data), 6)
+                        self.assertEqual(found[0]["name"], data["author_name"])
+                        self.assertEqual(len(data), 7)
                 elif status == ruuxee.models.v1.STATUS_DELETED:
                     self.assertEqual(len(data), 2)
                 else:

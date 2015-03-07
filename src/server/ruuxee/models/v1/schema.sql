@@ -190,39 +190,120 @@ CREATE TABLE ruuxee_topic_v1 (
 -- Step a to c make system know if this user logs on.
 -- Step d to f can get initial page rendered from server side and return.
 
--- Part 4: APIs
+-- Part 4: Web pages and APIs
+-- Web pages
 --    GET http://www.ruuxee.com/person
 --    GET http://www.ruuxee.com/person/<person_visible_id>
 --    GET http://www.ruuxee.com/person/<person_readable_id>
 --    GET http://www.ruuxee.com/post/<post_visible_id>
-
---    GET http://www.ruuxee.com/api/web/v1/person-brief/<person_visible_id>
---        Usage: Get brief information of given person. It's used when
---        getting user information from hovering.
---        Requires login.
---        If given person ID is invalid, returns 400.
---        On success, return name and visible_id (will add more).
-
---    GET http://www.ruuxee.com/api/web/v1/post/<post_visible_id>
---    GET http://www.ruuxee.com/api/web/v1/post-brief/<post_visible_id>
---    POST http://www.ruuxee.com/api/web/v1/follow/person/<person_visible_id>
---    POST http://www.ruuxee.com/api/web/v1/unfollow/person/<person_visible_id>
 --
---    POST http://www.ruuxee.com/api/web/v1/follow/topic/<topic_visible_id>
---    POST http://www.ruuxee.com/api/web/v1/unfollow/topic/<topic_visible_id>
+-- APIs
+-- 1. GET http://www.ruuxee.com/api/web/v1/person_brief/<visible_id>
+--   Purpose:
+--       Get brief information of a person, shown in hovering info.
+--   Return:
+--       status_code: HTTP code. All below will miss if code is not 200.
+--       name: name of person.
+--       visible_id: visible ID of given person,
+--       readable_id: Readable ID of given person
+--       company: Working company
 --
---    POST http://www.ruuxee.com/api/web/v1/upvote/post/<post_visible_id>
---    POST http://www.ruuxee.com/api/web/v1/downvote/post/<post_visible_id>
---    POST http://www.ruuxee.com/api/web/v1/neutral/post/<post_visible_id>
+-- 2. GET http://www.ruuxee.com/api/web/v1/post_brief/<visible_id>
+--   Purpose:
+--       Get brief information of a post. shown as short text.
+--   Return:
+--       status_code: HTTP code. All below will miss if code is not 200.
+--       status:
+--           STATUS_REVIEWING = 1
+--           STATUS_ACTIVATED = 2
+--           STATUS_SUSPENDED = 3
+--           STATUS_DELETED = 5
+--       visible_id: visible ID of given post,
+--       is_anonymous: Indicate if author is anonymous. 1 or 0.
+--       author_visible_id: Visible ID of author.
+--       title: Title of post
+--       brief_text: A short brief of post.
 --
---    POST http://www.ruuxee.com/api/web/v1/edit/vote/<post_visible_id>
---    POST http://www.ruuxee.com/api/web/v1/delete/post/<post_visible_id>
---    PUT http://www.ruuxee.com/api/web/v1/add/post/topic/<post_visible_id>
---    POST http://www.ruuxee.com/api/web/v1/edit/post/<post_visible_id>
---    GET http://www.ruuxee.com/api/web/v1/add/comment/post/<post_visible_id>/
---    POST http://www.ruuxee.com/api/web/v1/delete/comment/<comment_visible_id>/
+-- 3. GET http://www.ruuxee.com/api/web/v1/post/<post_visible_id>
+--   Purpose:
+--       Get brief information of a post. shown as full text.
+--   Return:
+--       status_code: HTTP code. All below will miss if code is not 200.
+--       status:
+--           STATUS_REVIEWING = 1
+--           STATUS_ACTIVATED = 2
+--           STATUS_SUSPENDED = 3
+--           STATUS_DELETED = 5
+--       is_anonymous: Indicate if author is anonymous. 1 or 0.
+--       author_visible_id: Visible ID of author.
+--       title: Title of post
+--       brief_text: A short brief of post.
+--       written_timestamp: Timestamp (in second) that the post is written.
+--       content_html: Content in HTML.
 --
---    GET http://www.ruuxee.com/api/web/v1/timeline/updates/<last_item_id>
+-- 4. GET http://www.ruuxee.com/api/web/v1/follow/topic/<topic_visible_id>
+--   Purpose
+--       Make current person follow a topic.
+--   Status
+--       status_code: HTTP code. All below will miss if code is not 200.
+--
+-- 5. GET http://www.ruuxee.com/api/web/v1/unfollow/topic/<topic_visible_id>
+--   Purpose
+--       Make current person unfollow a topic.
+--   Status
+--       status_code: HTTP code. All below will miss if code is not 200.
+--
+-- 6. GET http://www.ruuxee.com/api/web/v1/follow/person/<person_visible_id>
+--   Purpose
+--       Make current person follow another person.
+--   Status
+--       status_code: HTTP code. All below will miss if code is not 200.
+--
+-- 7. GET http://www.ruuxee.com/api/web/v1/unfollow/person/<person_visible_id>
+--   Purpose
+--       Make current person unfollow another person.
+--   Status
+--       status_code: HTTP code. All below will miss if code is not 200.
+--
+-- 8. GET http://www.ruuxee.com/api/web/v1/upvote/post/<post_visible_id>
+--   Purpose
+--       Make current person upvote a post.
+--   Status
+--       status_code: HTTP code. All below will miss if code is not 200.
+--
+-- 9. GET http://www.ruuxee.com/api/web/v1/downvote/post/<post_visible_id>
+--   Purpose
+--       Make current person downvote a post.
+--   Status
+--       status_code: HTTP code. All below will miss if code is not 200.
+--
+-- 10. GET http://www.ruuxee.com/api/web/v1/neutralize/post/<post_visible_id>
+--   Purpose
+--       Make current person neutralize a post (neither upvote nor downvote).
+--   Status
+--       status_code: HTTP code. All below will miss if code is not 200.
+--
+-- 11. GET http://www.ruuxee.com/api/web/v1/timeline/range/<begin>/<end>
+--   Purpose
+--       Get timeline range started from latest.
+--   Status
+--       status_code: HTTP code. All below will miss if code is not 200.
+--       data: A list of items below...
+--       [
+--          {
+--            timestamp: When this action Happens.
+--            action: ID of action
+--            action_display: Display name of action.
+--            "from"
+--            {
+--                same fields of get_person_brief
+--            }
+--            "to"
+--            {
+--                same fields of get_topic_brief, get_person_brief or
+--                get_post_brief
+--            }
+--       ]
 --
 -- NOTE
 -- a. All add* operations must use PUT to retrieve visible_ids.

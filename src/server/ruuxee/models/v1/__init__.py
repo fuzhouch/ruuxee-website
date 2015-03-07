@@ -296,6 +296,19 @@ class Core(utils.Logging):
             return None
 
     @utils.Logging.enter_leave
+    def get_topic_brief(self, topic_id):
+        # TODO
+        # Brief information contains only the following fields. They are
+        # supposed to be used in hovering popup window.
+        fields = [ "visible_id", "title", "description"]
+        data = self.__db.query_topic("visible_id", topic_id, fields)
+
+        if data is not None:
+            return data[0]
+        else:
+            return None
+
+    @utils.Logging.enter_leave
     def get_post_brief(self, post_visible_id):
         return self.__get_post(post_visible_id, full=False)
 
@@ -616,7 +629,7 @@ class Core(utils.Logging):
 
     def __get_post(self, post_visible_id, full = False):
         fields = [ "status", "is_anonymous", "author_visible_id", \
-                   "title", "brief_text" ]
+                   "title", "brief_text", "visible_id" ]
         if full:
             fields += [ "written_timestamp", "content_html" ]
         data = None
@@ -651,7 +664,11 @@ class Core(utils.Logging):
                          "author_name": author_name, \
                          "title": single["title"], \
                          "brief_text": single["brief_text"] }
-            # Append real content.
+            # Important: Make sure we don't return author visible ID for
+            # anonymous users.
+            if not single["is_anonymous"]:
+                data["author_visible_id"] = single["author_visible_id"]
+            # Append real content for full mode.
             if full:
                 data["written_timestamp"] = single["written_timestamp"]
                 data["content_html"] = single["content_html"]
