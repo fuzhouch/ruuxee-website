@@ -88,13 +88,13 @@ class BaseEnvironment(unittest.TestCase):
                 return each_person
         return None
 
-    def helper_post(self, path):
+    def helper_post(self, path, status_code = ruuxee.httplib.OK):
         with self.app.test_client() as c:
             resp = c.post('%s' % path)
-            self.assertEqual(resp.status_code, ruuxee.httplib.OK)
+            self.assertEqual(resp.status_code, status_code)
             data = json.loads(resp.data)
             status_code = data["status_code"]
-            self.assertEqual(status_code, ruuxee.httplib.OK)
+            self.assertEqual(status_code, status_code)
             return resp
 
     def helper_get(self, path, return_val = ruuxee.httplib.OK):
@@ -659,10 +659,126 @@ class TestEndToEndWithMockDb(BaseEnvironment):
         self.processor = threading.Thread(target=self.worker.main_loop)
         self.processor.start()
 
+        # Helper data for testing notifications
+        self.actions_in_notification = [
+                model1.ACTION_UPVOTE_POST,
+                model1.ACTION_FOLLOW_PERSON
+                ]
+        # TODO Will be updated when supporting adding
+        # post/topic/comments. See ruuxee.model.v1.ALL_NOTIFICATION_ACTIONS
+
+        self.source_target_in_notification = {
+                model1.ACTION_UPVOTE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_FOLLOW_PERSON: [\
+                        self.to_person_id, self.from_person_id],
+                }
+
+        self.actions_out_of_notification = [
+                model1.ACTION_DOWNVOTE_POST,
+                model1.ACTION_NEUTRALIZE_POST,
+                model1.ACTION_UNFOLLOW_PERSON,
+                model1.ACTION_FOLLOW_TOPIC,
+                model1.ACTION_UNFOLLOW_TOPIC
+                ]
+
+        self.source_target_out_of_notification = {
+                model1.ACTION_DOWNVOTE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_NEUTRALIZE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_UNFOLLOW_PERSON: [\
+                        self.to_person_id, self.from_person_id],
+                model1.ACTION_FOLLOW_TOPIC: [\
+                        self.to_person_id, self.to_topic_id],
+                model1.ACTION_UNFOLLOW_TOPIC: [\
+                        self.to_person_id, self.to_topic_id],
+                }
+
+        # Helper data for testing timeline.
+        self.actions_in_timeline = [
+                model1.ACTION_UPVOTE_POST,
+                model1.ACTION_FOLLOW_TOPIC
+                ]
+        # TODO Will be updated when supporting adding
+        # post/topic/comments. See ruuxee.model.v1.ALL_TIMELINE_ACTIONS
+
+        self.source_target_in_timeline = {
+                model1.ACTION_UPVOTE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_FOLLOW_TOPIC: [\
+                        self.to_person_id, self.to_topic_id],
+                }
+
+        self.actions_out_of_timeline = [
+                model1.ACTION_DOWNVOTE_POST,
+                model1.ACTION_NEUTRALIZE_POST,
+                model1.ACTION_UNFOLLOW_TOPIC,
+                model1.ACTION_FOLLOW_PERSON
+                ]
+
+        self.source_target_out_of_timeline = {
+                model1.ACTION_DOWNVOTE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_NEUTRALIZE_POST: [\
+                        self.to_person_id, self.from_post_id],
+                model1.ACTION_UNFOLLOW_TOPIC: [\
+                        self.to_person_id, self.to_topic_id],
+                model1.ACTION_FOLLOW_PERSON: [\
+                        self.to_person_id, self.from_person_id],
+                }
+
+
     def tearDown(self):
         self.queue.push_queue(model1.MESSAGE_QUEUE_STOP_SIGN)
         self.processor.join()
         BaseEnvironment.setUp(self)
+
+    def helper_pre_test(self):
+        self.helper_empty_queue()
+        with self.app.test_client() as c:
+            # Setup enviroment.
+            # 1. From_person must follow to_person.
+            # 2. To_person must neutralize from_post
+            path = '/apis/web/v1/follow/person'
+            self.helper_post('%s/%s' % (path, self.to_person_id))
+            self.assertEqual(self.helper_wait_queue_empty(2), True)
+            # Clear this notification or it will affect tasks by
+            # dropping an item in notification list.
+            pid = self.to_person_id
+            table_name = model1.TableNameGenerator.person_notification(pid)
+            self.cache.initialize_list(table_name)
+
+            pid = self.from_post_id
+            table_name = model1.TableNameGenerator.post_upvote(pid)
+            self.helper_post_message(model1.ACTION_NEUTRALIZE_POST,
+                                     self.to_person_id,
+                                     self.from_post_id,
+                                     "")
+            self.assertEqual(self.helper_wait_queue_empty(2), True)
+
+    def helper_post_test(self):
+        # Environment clearnup
+            # 1. From_person must unfollow to_person.
+            # 2. To_person must neutralize from_post
+        path = '/apis/web/v1/unfollow/person'
+        self.helper_post('%s/%s' % (path, self.to_person_id))
+        self.assertEqual(self.helper_wait_queue_empty(2), True)
+        pid = self.from_post_id
+
+        table_name = model1.TableNameGenerator.post_upvote(pid)
+        self.helper_post_message(model1.ACTION_NEUTRALIZE_POST,
+                                 self.to_person_id,
+                                 self.from_post_id,
+                                 "")
+        self.assertEqual(self.helper_wait_queue_empty(2), True)
+
+        pid = self.from_person_id
+        table_name = model1.TableNameGenerator.person_notification(pid)
+        self.cache.initialize_list(table_name)
+        pid = self.from_person_id
+        table_name = model1.TableNameGenerator.person_timeline(pid)
+        self.cache.initialize_list(table_name)
 
     def test_notifications(self):
         """Case 1: Notification is sent to target person's notification
@@ -676,7 +792,6 @@ class TestEndToEndWithMockDb(BaseEnvironment):
         2.2 When follow or unfollow a topic.
         2.3 When unfollow a person.
         """
-        self.helper_empty_queue()
 
         actions_no_notifications = [
                 model1.ACTION_DOWNVOTE_POST,
@@ -732,14 +847,7 @@ class TestEndToEndWithMockDb(BaseEnvironment):
                 model1.ACTION_UNFOLLOW_PERSON: self.to_person_id
                 }
 
-        # Clear environment first.
-        with self.app.test_client() as c:
-            for each_action in actions_clear_env:
-                path = path_clear_env[each_action]
-                target_id = target_clear_env[each_action]
-                resp = self.helper_post('%s/%s' % (path, target_id))
-                data = json.loads(resp.data)
-            self.assertEqual(self.helper_wait_queue_empty(2), True)
+        self.helper_pre_test()
 
         # Case 3: Other actions will not trigger notifications.
         with self.app.test_client() as c:
@@ -756,12 +864,7 @@ class TestEndToEndWithMockDb(BaseEnvironment):
                 record = self.cache.get_list_range(table, 0, 10)
                 # There are only two notifications, from previous Case 1
                 # execution.
-                try:
-                    self.assertEqual(len(record), 0)
-                except Exception as e:
-                    print("code: %s" % each_action)
-                    print(record)
-                    raise e
+                self.assertEqual(len(record), 0)
 
         # Case 1: Actions that can invoke notification will take effect.
         with self.app.test_client() as c:
@@ -801,24 +904,13 @@ class TestEndToEndWithMockDb(BaseEnvironment):
                 # There are only two notifications, from previous Case 1
                 # execution.
                 self.assertEqual(len(record), 2)
+        self.helper_post_test()
 
     def helper_test_timeline_notification_ranges(self, operation,
-            actions_in, source_target_in, actions_out, source_target_out):
-        self.helper_empty_queue()
+                                    actions_in, source_target_in,
+                                    actions_out, source_target_out):
+        self.helper_pre_test()
         with self.app.test_client() as c:
-            # Setup enviroment.
-            path = '/apis/web/v1/follow/person'
-            self.helper_post('%s/%s' % (path, self.to_person_id))
-            self.assertEqual(self.helper_wait_queue_empty(2), True)
-            # Clear this notification or it will affect tasks by
-            # dropping an item in notification list.
-            pid = self.to_person_id
-            table_name = model1.TableNameGenerator.person_notification(pid)
-            self.cache.initialize_list(table_name)
-            pid = self.from_person_id
-            table_name = model1.TableNameGenerator.person_timeline(pid)
-            self.cache.initialize_list(table_name)
-
             # Case
             # Verify updates from persons followed by current person can
             # push their updates to current persons' timeline.
@@ -878,11 +970,7 @@ class TestEndToEndWithMockDb(BaseEnvironment):
                 path = "/apis/web/v1/%s/range/%s/%s" % \
                         (operation, each_test_set[0], each_test_set[1])
                 resp = self.helper_get(path, each_test_set[2])
-
-            # Cleanup enviroment.
-            path = '/apis/web/v1/unfollow/person'
-            self.helper_post('%s/%s' % (path, self.to_person_id))
-            self.assertEqual(self.helper_wait_queue_empty(3), True)
+        self.helper_post_test()
 
     def test_notification_ranges(self):
         """Case: Verify notification can receive items below in timeline:
@@ -904,51 +992,12 @@ class TestEndToEndWithMockDb(BaseEnvironment):
         Case 9: If begin >= end then it returns error.
         Case 10: If begin or end is not integer then it returns error."""
 
-        actions_in_notification = [
-                model1.ACTION_UPVOTE_POST,
-                model1.ACTION_FOLLOW_PERSON
-                ]
-        # TODO Will be updated when supporting adding
-        # post/topic/comments. See ruuxee.model.v1.ALL_NOTIFICATION_ACTIONS
-
-        source_target_in_notification = {
-                model1.ACTION_UPVOTE_POST: [\
-                        self.to_person_id, self.from_post_id],
-                model1.ACTION_FOLLOW_PERSON: [\
-                        self.to_person_id, self.from_person_id],
-                }
-
-        actions_out_of_notification = [
-                model1.ACTION_DOWNVOTE_POST,
-                model1.ACTION_NEUTRALIZE_POST,
-                model1.ACTION_UNFOLLOW_PERSON,
-                model1.ACTION_FOLLOW_TOPIC,
-                model1.ACTION_UNFOLLOW_TOPIC
-                ]
-
-        source_target_out_of_notification = {
-                model1.ACTION_DOWNVOTE_POST: [\
-                        self.to_person_id, self.from_post_id],
-                model1.ACTION_NEUTRALIZE_POST: [\
-                        self.to_person_id, self.from_post_id],
-                model1.ACTION_UNFOLLOW_PERSON: [\
-                        self.to_person_id, self.from_person_id],
-                model1.ACTION_FOLLOW_TOPIC: [\
-                        self.to_person_id, self.to_topic_id],
-                model1.ACTION_UNFOLLOW_TOPIC: [\
-                        self.to_person_id, self.to_topic_id],
-                }
-
         self.helper_test_timeline_notification_ranges(
                 "notification",
-                actions_in_notification,
-                source_target_in_notification,
-                actions_out_of_notification,
-                source_target_out_of_notification)
-        # Clear all data during test.
-        pid = self.from_person_id
-        table = model1.TableNameGenerator.person_notification(pid)
-        record = self.cache.initialize_list(table)
+                self.actions_in_notification,
+                self.source_target_in_notification,
+                self.actions_out_of_notification,
+                self.source_target_out_of_notification)
 
     def test_timeline_ranges(self):
         """Case: Verify timeline can receive items below in timeline:
@@ -968,44 +1017,67 @@ class TestEndToEndWithMockDb(BaseEnvironment):
         error.
         Case 8: If begin >= end then it returns error.
         Case 9: If begin or end is not integer then it returns error."""
-        actions_in_timeline = [
-                model1.ACTION_UPVOTE_POST,
-                model1.ACTION_FOLLOW_TOPIC
-                ]
-        # TODO Will be updated when supporting adding
-        # post/topic/comments. See ruuxee.model.v1.ALL_TIMELINE_ACTIONS
-
-        source_target_in_timeline = {
-                model1.ACTION_UPVOTE_POST: [\
-                        self.to_person_id, self.from_post_id],
-                model1.ACTION_FOLLOW_TOPIC: [\
-                        self.to_person_id, self.to_topic_id],
-                }
-
-        actions_out_of_timeline = [
-                model1.ACTION_DOWNVOTE_POST,
-                model1.ACTION_NEUTRALIZE_POST,
-                model1.ACTION_UNFOLLOW_TOPIC,
-                model1.ACTION_FOLLOW_PERSON
-                ]
-
-        source_target_out_of_timeline = {
-                model1.ACTION_DOWNVOTE_POST: [\
-                        self.to_person_id, self.from_post_id],
-                model1.ACTION_NEUTRALIZE_POST: [\
-                        self.to_person_id, self.from_post_id],
-                model1.ACTION_UNFOLLOW_TOPIC: [\
-                        self.to_person_id, self.to_topic_id],
-                model1.ACTION_FOLLOW_PERSON: [\
-                        self.to_person_id, self.from_person_id],
-                }
         self.helper_test_timeline_notification_ranges(
                 "timeline",
-                actions_in_timeline,
-                source_target_in_timeline,
-                actions_out_of_timeline,
-                source_target_out_of_timeline)
-        # Clear all data during test.
-        pid = self.from_person_id
-        table = model1.TableNameGenerator.person_timeline(pid)
-        record = self.cache.initialize_list(table)
+                self.actions_in_timeline,
+                self.source_target_in_timeline,
+                self.actions_out_of_timeline,
+                self.source_target_out_of_timeline)
+
+    def helper_timeline_notification_update(self, operation,
+                                        actions_in, source_target_in):
+        """Test timeline and notification updates.
+        1: A timestamp newer than now returns BAD_REQUEST
+        2: Invalid timestamp value returns BAD_REQUEST
+        3: Valid timestamp returns correct items.
+        """
+        self.helper_pre_test()
+        # Test 1: Timestamp newer than now returns BAD_REQUEST.
+        # Test 2: An invalid timestamp also causes BAD_REQUEST.
+        with self.app.test_client() as c:
+            now = utils.stimestamp()
+            bad_ts = now + 1000
+            path = "/apis/web/v1/%s/update/%d" % (operation, bad_ts)
+            resp = self.helper_get(path, ruuxee.httplib.BAD_REQUEST)
+
+            path = "/apis/web/v1/%s/update/invalid" % operation
+            resp = self.helper_get(path, ruuxee.httplib.BAD_REQUEST)
+
+        # Test 3: Valid timestamp return correct results
+        update_count = 1
+        with self.app.test_client() as c:
+            for each_action in actions_in:
+                # Step 1: Prepare environment
+                source = source_target_in[each_action][0]
+                target = source_target_in[each_action][1]
+                self.helper_post_message(each_action, source, target, "")
+                # Sleep for a while to wait for backend.
+                self.assertEqual(self.helper_wait_queue_empty(2), True)
+
+                # Step 2: Suppose one item is listed in history.
+                path = "/apis/web/v1/%s/range/0/100" % operation
+                resp = self.helper_get(path)
+                data = json.loads(resp.data)
+                self.assertEqual(len(data["data"]), update_count)
+                ts = int(data["data"][0]["timestamp"])
+
+                # Step 3: Get items with valid timestamp
+                valid_ts = ts - 100
+                path = "/apis/web/v1/%s/update/%d" % (operation, valid_ts)
+                resp = self.helper_get(path)
+                resp = self.helper_get(path)
+                data = json.loads(resp.data)
+                self.assertEqual(len(data["data"]), update_count)
+
+                update_count += 1
+        self.helper_post_test()
+
+    def test_timeline_update(self):
+        self.helper_timeline_notification_update("timeline",
+                                        self.actions_in_timeline,
+                                        self.source_target_in_timeline)
+
+    def test_notification_update(self):
+        self.helper_timeline_notification_update("notification",
+                                        self.actions_in_notification,
+                                        self.source_target_in_notification)

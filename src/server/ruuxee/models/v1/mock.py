@@ -279,6 +279,9 @@ class Cache(object):
     def get_list_range(self, list_name, begin, end):
         return self.__lists[list_name][begin:end]
 
+    def get_list_length(self, list_name):
+        return len(self.__lists[list_name])
+
 class AlwaysBourneZhuWebSession(object):
     """A fake WebSession that deal with login session.
 

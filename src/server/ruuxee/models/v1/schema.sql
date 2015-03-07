@@ -331,6 +331,58 @@ CREATE TABLE ruuxee_topic_v1 (
 --            }
 --       ]
 --
+-- 13. GET http://www.ruuxee.com/api/web/v1/timeline/update/<since_time>
+--   Purpose
+--       Get timeline range started from given timestamp (specified by
+--       since_time.
+--
+--       NOTE: since_time is Epoch second since 1970-01-01 00:00:00.
+--   Status
+--       status_code: HTTP code. All below will miss if code is not 200.
+--       data: A list of items below...
+--       [
+--          {
+--            timestamp: When this action Happens.
+--            action: ID of action
+--            action_display: Display name of action.
+--            "from"
+--            {
+--                same fields of get_person_brief
+--            }
+--            "to"
+--            {
+--                same fields of get_topic_brief, get_person_brief or
+--                get_post_brief
+--            }
+--       ]
+--
+-- 14. GET http://www.ruuxee.com/api/web/v1/notification/update/<since_time>
+--   Purpose
+--       Get notification range started later than given time. notification
+--       is the action performed by other person but target current
+--       logged on user.
+--
+--       NOTE: since_time is Epoch second since 1970-01-01 00:00:00.
+--
+--   Status
+--       status_code: HTTP code. All below will miss if code is not 200.
+--       data: A list of items below...
+--       [
+--          {
+--            timestamp: When this action Happens.
+--            action: ID of action
+--            action_display: Display name of action.
+--            "from"
+--            {
+--                same fields of get_person_brief
+--            }
+--            "to"
+--            {
+--                same fields of get_topic_brief, get_person_brief or
+--                get_post_brief
+--            }
+--       ]
+
 --
 -- NOTE
 -- a. All add* operations must use PUT to retrieve visible_ids.

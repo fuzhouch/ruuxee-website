@@ -47,6 +47,14 @@ class Application(flask.Flask):
             # Pick default template folder
             flask.Flask.__init__(self, self.__app_name)
         self.config.from_object(config)
+
+        # Check how many items we should check in single query for each
+        # notification and/or timeline. See Core APIs for more details.
+        if "RUUXEE_SINGLE_QUERY_ITEMS" in self.config:
+            self.__items = int(self.config["RUUXEE_SINGLE_QUERY_ITEMS"])
+        else:
+            self.__items = 50
+
     def app_name(self):
         return self.__app_name
 
@@ -57,6 +65,14 @@ class Application(flask.Flask):
     @staticmethod
     def current_session_manager():
         return flask.current_app.config["RUUXEE_SESSION_MANAGER"]
+
+    @property
+    def single_query_items(self):
+        return self.__items
+
+    @staticmethod
+    def current_single_query_items():
+        return flask.current_app.single_query_items
 
 class View(flask.Blueprint):
     """
