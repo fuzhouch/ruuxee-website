@@ -63,6 +63,7 @@ TABLE_NAME_PERSON_ACTIONS            = "pa"
 TABLE_NAME_PERSON_FOLLOW_PERSON      = "pfp"
 TABLE_NAME_PERSON_FOLLOWED_BY_PERSON = "pfbp"
 TABLE_NAME_PERSON_TIMELINE           = "pt"
+TABLE_NAME_PERSON_NOTIFICATION       = "pn"
 TABLE_NAME_PERSON_FOLLOW_TOPIC       = "pft"
 TABLE_NAME_TOPIC_FOLLOWED_BY_PERSON  = "tfbp"
 TABLE_NAME_POST_UPVOTE               = "pu"
@@ -114,6 +115,10 @@ class TableNameGenerator(object):
     def person_timeline(visible_id):
         return "%s%s" % (TABLE_NAME_PERSON_TIMELINE, str(visible_id))
 
+    @staticmethod
+    def person_notification(visible_id):
+        return "%s%s" % (TABLE_NAME_PERSON_NOTIFICATION, str(visible_id))
+
 @utils.Logging.enter_leave
 def initialize_person_cache(cache, visible_id):
     """def initialize_person_cache(cache, visible_id)
@@ -125,8 +130,10 @@ def initialize_person_cache(cache, visible_id):
     followers = TableNameGenerator.person_follow_person(visible_id)
     followed_by = TableNameGenerator.person_followed_by_person(visible_id)
     topics = TableNameGenerator.person_follow_topic(visible_id)
+    notifications = TableNameGenerator.person_notification(visible_id)
     cache.initialize_list(action_history)
     cache.initialize_list(timeline)
+    cache.initialize_list(notifications)
     cache.initialize_set(followers)
     cache.initialize_set(followed_by)
     cache.initialize_set(topics)
@@ -749,60 +756,91 @@ class RequestWorker(utils.Logging):
     # ============= Handler functions ==============
     def __follow_person(self, ts, from_id, to_id, addition):
         table_name = TableNameGenerator.person_follow_person(from_id)
-        self.__cache.insert_set(table_name, to_id)
-        table_name = TableNameGenerator.person_followed_by_person(to_id)
-        self.__cache.insert_set(table_name, from_id)
-        self.log_info("%s follow %s" % (from_id, to_id))
+        performed = 0
+        if not self.__cache.in_set(table_name, to_id):
+            self.__cache.insert_set(table_name, to_id)
+            table_name = TableNameGenerator.person_followed_by_person(to_id)
+            self.__cache.insert_set(table_name, from_id)
+            action = ACTION_FOLLOW_PERSON
+            self.__notify_person(to_id, ts, action, from_id, to_id, addition)
+            performed = 1
+        self.log_info("%d %s follow %s" % (performed, from_id, to_id))
 
     def __unfollow_person(self, ts, from_id, to_id, addition):
         table_name = TableNameGenerator.person_follow_person(from_id)
-        self.__cache.remove_set(table_name, to_id)
-        table_name = TableNameGenerator.person_followed_by_person(to_id)
-        self.__cache.remove_set(table_name, from_id)
-        self.log_info("%s unfollow %s" % (from_id, to_id))
+        performed = 0
+        if self.__cache.in_set(table_name, to_id):
+            self.__cache.remove_set(table_name, to_id)
+            table_name = TableNameGenerator.person_followed_by_person(to_id)
+            self.__cache.remove_set(table_name, from_id)
+            performed = 1
+        self.log_info("%d %s unfollow %s" % (performed, from_id, to_id))
 
     def __follow_topic(self, ts, from_id, to_id, addition):
         table_name = TableNameGenerator.person_follow_topic(from_id)
-        self.__cache.insert_set(table_name, to_id)
-        table_name = TableNameGenerator.topic_followed_by_person(to_id)
-        self.__cache.insert_set(table_name, from_id)
-        action = ACTION_FOLLOW_TOPIC
-        self.__update_follower_timelines(ts, action, from_id, to_id, addition)
-        self.log_info("%s follow_topic %s" % (from_id, to_id))
+        performed = 0
+        if not self.__cache.in_set(table_name, to_id):
+            self.__cache.insert_set(table_name, to_id)
+            table_name = TableNameGenerator.topic_followed_by_person(to_id)
+            self.__cache.insert_set(table_name, from_id)
+            action = ACTION_FOLLOW_TOPIC
+            self.__update_follower_timelines(ts, action, from_id, to_id, addition)
+            performed = 1
+        self.log_info("%d %s follow_topic %s" % (performed, from_id, to_id))
 
     def __unfollow_topic(self, ts, from_id, to_id, addition):
         table_name = TableNameGenerator.person_follow_topic(from_id)
-        self.__cache.remove_set(table_name, to_id)
-        table_name = TableNameGenerator.topic_followed_by_person(to_id)
-        self.__cache.remove_set(table_name, from_id)
-        self.log_info("%s unfollow_topic %s" % (from_id, to_id))
+        performed = 0
+        if self.__cache.in_set(table_name, to_id):
+            self.__cache.remove_set(table_name, to_id)
+            table_name = TableNameGenerator.topic_followed_by_person(to_id)
+            self.__cache.remove_set(table_name, from_id)
+            performed = 1
+        self.log_info("%d %s unfollow_topic %s" % (performed, from_id, to_id))
 
     def __upvote_post(self, ts, from_id, to_id, addition):
-        table_name = TableNameGenerator.post_downvote(to_id)
-        if self.__cache.in_list(table_name, from_id):
-            self.__cache.remove_list(table_name, from_id)
         table_name = TableNameGenerator.post_upvote(to_id)
-        self.__cache.prepend_list(table_name, from_id)
-        self.log_info("%s upvote %s" % (from_id, to_id))
-        action = ACTION_UPVOTE_POST
-        self.__update_follower_timelines(ts, action, from_id, to_id, addition)
+        performed = 0
+        if not self.__cache.in_list(table_name, from_id):
+            self.__cache.prepend_list(table_name, from_id)
+            table_name = TableNameGenerator.post_downvote(to_id)
+            if self.__cache.in_list(table_name, from_id):
+                self.__cache.remove_list(table_name, from_id)
+            action = ACTION_UPVOTE_POST
+            self.__update_follower_timelines(ts, action,
+                                         from_id, to_id, addition)
+            fields = ["author_visible_id"]
+            found = self.__db.query_post("visible_id", to_id, fields)
+            target_id = found[0]["author_visible_id"]
+            self.__notify_person(target_id, ts,
+                                 action, from_id, to_id, addition)
+            performed = 1
+        self.log_info("%d %s upvote_post %s" % (performed, from_id, to_id))
 
     def __downvote_post(self, ts, from_id, to_id, addition):
-        table_name = TableNameGenerator.post_upvote(to_id)
-        if self.__cache.in_list(table_name, from_id):
-            self.__cache.remove_list(table_name, from_id)
         table_name = TableNameGenerator.post_downvote(to_id)
-        self.__cache.prepend_list(table_name, from_id)
-        self.log_info("%s downvote %s" % (from_id, to_id))
+        performed = 0
+        if not self.__cache.in_list(table_name, from_id):
+            self.__cache.prepend_list(table_name, from_id)
+            table_name = TableNameGenerator.post_upvote(to_id)
+            if self.__cache.in_list(table_name, from_id):
+                self.__cache.remove_list(table_name, from_id)
+            performed = 1
+        self.log_info("%d %s downvote %s" % (performed, from_id, to_id))
 
     def __neutralize_post(self, ts, from_id, to_id, addition):
+        performed_upvote = 0
+        performed_downvote = 0
         table_name = TableNameGenerator.post_downvote(to_id)
         if self.__cache.in_list(table_name, from_id):
             self.__cache.remove_list(table_name, from_id)
+            performed_downvote = 1
         table_name = TableNameGenerator.post_upvote(to_id)
         if self.__cache.in_list(table_name, from_id):
             self.__cache.remove_list(table_name, from_id)
-        self.log_info("%s neutralize %s" % (from_id, to_id))
+            performed_upvote = 1
+        performed = performed_downvote + performed_upvote
+        self.log_info("%d %s neutralize %s" % (performed, from_id, to_id))
 
     def __add_action_history(self, timestamp,\
                              action, current, target, addition):
@@ -825,3 +863,8 @@ class RequestWorker(utils.Logging):
         data = HistoryItem(timestamp, action, current, target, addition)
         self.__cache.prepend_list(table_name, data.encode())
 
+    def __notify_person(self, notifee,
+                        timestamp, action, current, target, addition):
+        table_name = TableNameGenerator.person_notification(notifee)
+        data = HistoryItem(timestamp, action, current, target, addition)
+        self.__cache.prepend_list(table_name, data.encode())

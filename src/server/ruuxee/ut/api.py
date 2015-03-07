@@ -658,6 +658,140 @@ class TestEndToEndWithMockDb(BaseEnvironment):
         self.processor.join()
         BaseEnvironment.setUp(self)
 
+    def test_notifications(self):
+        """Case 1: Notification is sent to target person's notification
+        list.
+        1.1 When target person is followed.
+        1.2 When a post of target person is upvoted.
+        
+        Case 2: Repeated behavior will NOT trigger notification.
+        Case 3: Some actions will not trigger notifications.
+        2.1 When downvote or neutralize a post.
+        2.2 When follow or unfollow a topic.
+        2.3 When unfollow a person.
+        """
+        self.helper_empty_queue()
+
+        actions_no_notifications = [
+                model1.ACTION_DOWNVOTE_POST,
+                model1.ACTION_NEUTRALIZE_POST,
+                model1.ACTION_UNFOLLOW_PERSON,
+                model1.ACTION_FOLLOW_TOPIC,
+                model1.ACTION_UNFOLLOW_TOPIC
+                ]
+
+        path_no_notifications = {
+                model1.ACTION_DOWNVOTE_POST: '/apis/web/v1/downvote/post',
+                model1.ACTION_NEUTRALIZE_POST: '/apis/web/v1/neutralize/post',
+                model1.ACTION_UNFOLLOW_PERSON: '/apis/web/v1/unfollow/person',
+                model1.ACTION_FOLLOW_TOPIC: '/apis/web/v1/follow/topic',
+                model1.ACTION_UNFOLLOW_TOPIC: '/apis/web/v1/unfollow/topic'
+                }
+
+        target_no_notifications = {
+                model1.ACTION_DOWNVOTE_POST: self.to_post_id,
+                model1.ACTION_NEUTRALIZE_POST: self.to_post_id,
+                model1.ACTION_UNFOLLOW_PERSON: self.to_person_id,
+                model1.ACTION_FOLLOW_TOPIC: self.to_topic_id,
+                model1.ACTION_UNFOLLOW_TOPIC: self.to_topic_id,
+                }
+
+        actions_in_notifications = [
+                model1.ACTION_UPVOTE_POST,
+                model1.ACTION_FOLLOW_PERSON
+                ]
+
+        path_in_notifications = {
+                model1.ACTION_UPVOTE_POST: '/apis/web/v1/upvote/post',
+                model1.ACTION_FOLLOW_PERSON: '/apis/web/v1/follow/person'
+                }
+
+        target_in_notifications = {
+                model1.ACTION_UPVOTE_POST: self.to_post_id,
+                model1.ACTION_FOLLOW_PERSON: self.to_person_id
+                }
+
+        actions_clear_env = [
+                model1.ACTION_NEUTRALIZE_POST,
+                model1.ACTION_UNFOLLOW_PERSON
+                ]
+
+        path_clear_env = {
+                model1.ACTION_NEUTRALIZE_POST: '/apis/web/v1/neutralize/post',
+                model1.ACTION_UNFOLLOW_PERSON: '/apis/web/v1/unfollow/person'
+                }
+
+        target_clear_env = {
+                model1.ACTION_NEUTRALIZE_POST: self.to_post_id,
+                model1.ACTION_UNFOLLOW_PERSON: self.to_person_id
+                }
+
+        # Clear environment first.
+        with self.app.test_client() as c:
+            for each_action in actions_clear_env:
+                path = path_clear_env[each_action]
+                target_id = target_clear_env[each_action]
+                resp = self.helper_post('%s/%s' % (path, target_id))
+                data = json.loads(resp.data)
+                self.assertEqual(self.helper_wait_queue_empty(3), True)
+
+        # Case 3: Other actions will not trigger notifications.
+        with self.app.test_client() as c:
+            for each_action in actions_no_notifications:
+                path = path_no_notifications[each_action]
+                target_id = target_no_notifications[each_action]
+                ts = utils.stimestamp()
+                resp = self.helper_post('%s/%s' % (path, target_id))
+                data = json.loads(resp.data)
+                self.assertEqual(self.helper_wait_queue_empty(3), True)
+                # We will not be able to see new notifications.
+                pid = self.to_person_id
+                table = model1.TableNameGenerator.person_notification(pid)
+                record = self.cache.get_list_range(table, 0, 10)
+                # There are only two notifications, from previous Case 1
+                # execution.
+                self.assertEqual(len(record), 0)
+
+        # Case 1: Actions that can invoke notification will take effect.
+        with self.app.test_client() as c:
+            for each_action in actions_in_notifications:
+                path = path_in_notifications[each_action]
+                target_id = target_in_notifications[each_action]
+                ts = utils.stimestamp()
+                resp = self.helper_post('%s/%s' % (path, target_id))
+                data = json.loads(resp.data)
+                self.assertEqual(self.helper_wait_queue_empty(3), True)
+                # Now we should be able to see notifications in
+                # to_person_id's list.
+                pid = self.to_person_id
+                table = model1.TableNameGenerator.person_notification(pid)
+                record = self.cache.get_list_range(table, 0, 1)
+                item = model1.HistoryItem.create_from_record(record[0])
+                self.assertEqual(item.action, each_action)
+                self.assertEqual(item.source_id, self.from_person_id)
+                self.assertEqual(item.target_id, target_id)
+                self.assertEqual(item.addition_id, "")
+                self.assertEqual(int(item.stimestamp) - ts <= 1, True)
+        # Case 2: Repeated action can't invoke notifications, even
+        # valid.
+        with self.app.test_client() as c:
+            for each_action in actions_in_notifications:
+                path = path_in_notifications[each_action]
+                target_id = target_in_notifications[each_action]
+                ts = utils.stimestamp()
+                resp = self.helper_post('%s/%s' % (path, target_id))
+                data = json.loads(resp.data)
+                self.assertEqual(self.helper_wait_queue_empty(3), True)
+                # We will not be able to see new notifications.
+                pid = self.to_person_id
+                table = model1.TableNameGenerator.person_notification(pid)
+                record = self.cache.get_list_range(table, 0, 10)
+                # There are only two notifications, from previous Case 1
+                # execution.
+                self.assertEqual(len(record), 2)
+        table = model1.TableNameGenerator.person_notification(pid)
+        record = self.cache.initialize_list(table)
+
     def test_timeline_ranges(self):
         """Case: Verify timeline can receive items below in timeline:
         1. When follow a new person.
@@ -675,8 +809,7 @@ class TestEndToEndWithMockDb(BaseEnvironment):
         Case 7: If passed in data is negative number then it returns
         error.
         Case 8: If begin >= end then it returns error.
-        Case 9: If begin or end is not integer then it returns error.
-        """
+        Case 9: If begin or end is not integer then it returns error."""
         self.helper_empty_queue()
 
         actions_in_timeline = [
@@ -697,6 +830,7 @@ class TestEndToEndWithMockDb(BaseEnvironment):
                 model1.ACTION_UNFOLLOW_TOPIC,
                 model1.ACTION_FOLLOW_PERSON
                 ]
+
         source_target_out_of_timeline = {
                 model1.ACTION_DOWNVOTE_POST: [\
                         self.to_person_id, self.from_post_id],
@@ -768,4 +902,6 @@ class TestEndToEndWithMockDb(BaseEnvironment):
                 path = "/apis/web/v1/timeline/range/%s/%s" % \
                         (each_test_set[0], each_test_set[1])
                 resp = self.helper_get(path, each_test_set[2])
+
+            # Case 10
 
