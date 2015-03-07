@@ -69,6 +69,32 @@ TABLE_NAME_TOPIC_FOLLOWED_BY_PERSON  = "tfbp"
 TABLE_NAME_POST_UPVOTE               = "pu"
 TABLE_NAME_POST_DOWNVOTE             = "pd"
 
+ALL_TIMELINE_ACTIONS = [
+        ACTION_UPVOTE_POST,
+        ACTION_FOLLOW_TOPIC,
+        ACTION_ADD_POST,
+        ACTION_ADD_TOPIC,
+        ]
+
+ALL_NOTIFICATION_ACTIONS = [
+        ACTION_UPVOTE_POST,
+        ACTION_FOLLOW_PERSON,
+        ACTION_ADD_COMMENT,
+        ]
+
+ALL_TIMELINE_ACTION_NAMES = {
+        ACTION_FOLLOW_TOPIC  : u'关注了话题',
+        ACTION_UPVOTE_POST   : u'赞同了回答',
+        ACTION_ADD_POST      : u'发表了观点',
+        ACTION_ADD_TOPIC     : u'添加了话题'
+        }
+
+ALL_NOTIFICATION_ACTION_NAMES = {
+        ACTION_UPVOTE_POST   : u'赞同了你的观点',
+        ACTION_FOLLOW_PERSON : u'关注了你',
+        ACTION_ADD_COMMENT   : u'评论了你的观点'
+        }
+
 # The stop sign is used to tell QueueWorker that it should stop.
 MESSAGE_QUEUE_STOP_SIGN = '{EOQ}'
 
@@ -232,6 +258,17 @@ class Core(utils.Logging):
         self.__cache = cache
         self.__queue = queue
         utils.Logging.__init__(self)
+        # This table is used in handlers like notifications and
+        # timelines, for getting information based on action.
+        self.__info_table = {
+                ACTION_UPVOTE_POST: self.get_post_brief,
+                ACTION_FOLLOW_TOPIC: self.get_topic_brief,
+                ACTION_ADD_POST: self.get_person_brief,
+                ACTION_ADD_TOPIC: self.get_topic_brief,
+                ACTION_UPVOTE_POST: self.get_post_brief,
+                ACTION_FOLLOW_PERSON: self.get_person_brief,
+                ACTION_ADD_COMMENT: None # TODO
+            }
 
     @property
     def db(self):
@@ -571,12 +608,59 @@ class Core(utils.Logging):
             item = HistoryItem.create_from_record(each_record)
             data["timestamp"] = item.stimestamp
             data["action"] = item.action
-            data["from_visible_id"] = item.source_id
-            data["to_visible_id"] = item.target_id
+            data["action_name"] = ALL_TIMELINE_ACTION_NAMES[item.action]
+            data["from"] = self.get_person_brief(item.source_id)
+            get_timeline_info = self.__info_table[item.action]
+            data["to"] = get_timeline_info(item.target_id)
             # item.addition is not exposed because it's used for
             # internal reference.
             response["data"].append(data)
         return response
+
+    @utils.Logging.enter_leave
+    def get_notification_range(self, current_person_id, begin, end):
+        """def get_notification_range(self, current_person_id, begin, end)
+
+        Return specified range of latest updates."""
+        current = str(current_person_id)
+        try:
+            begin_offset = int(begin)
+            end_offset = int(end)
+        except Exception:
+            return self.__response(ruuxee.httplib.BAD_REQUEST)
+
+        if begin_offset < 0 or end_offset < 0:
+            return self.__response(ruuxee.httplib.BAD_REQUEST)
+
+        if begin_offset >= end_offset:
+            return self.__response(ruuxee.httplib.METHOD_NOT_ALLOWED)
+
+        status = self.is_actionable_person(current)
+        if status != ruuxee.httplib.OK:
+            return self.__response(status)
+
+        self.log_info("Effective: notification %s %s %s" % \
+                      (current, begin, end))
+
+        table_name = TableNameGenerator.person_notification(current)
+        ret = self.__cache.get_list_range(table_name,\
+                                          begin_offset, end_offset)
+        response = self.__response(ruuxee.httplib.OK)
+        response["data"] = []
+        for each_record in ret:
+            data = {}
+            item = HistoryItem.create_from_record(each_record)
+            data["timestamp"] = item.stimestamp
+            data["action"] = item.action
+            data["action_name"] = ALL_NOTIFICATION_ACTION_NAMES[item.action]
+            data["from"] = self.get_person_brief(item.source_id)
+            get_timeline_info = self.__info_table[item.action]
+            data["to"] = get_timeline_info(item.target_id)
+            # item.addition is not exposed because it's used for
+            # internal reference.
+            response["data"].append(data)
+        return response
+
 
     def __is_post_written_by(self, post_id, person_id):
         fields = ["author_visible_id"]
@@ -684,6 +768,8 @@ class Core(utils.Logging):
             if full:
                 data["written_timestamp"] = found["written_timestamp"]
                 data["content_html"] = found["content_html"]
+            # All post must come with visible ID.
+            data["visible_id"] = found["visible_id"]
         return data
 
 class RequestWorker(utils.Logging):

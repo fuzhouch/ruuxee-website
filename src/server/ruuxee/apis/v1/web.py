@@ -274,3 +274,45 @@ def get_timeline_range(begin, end):
     resp = core.get_timeline_range(this_person_id, begin, end)
     return make_json_response(resp)
 
+@page.route('/notification/range/<begin>/<end>', methods=['GET'])
+@signin_required
+def get_notification_range(begin, end):
+    """def get_notification_range(begin, end): -> Json
+
+    Get a range of latest updates of notifications, with offset
+    [begin, end). The latest update always starts from 0.
+    """
+    core = ruuxee.Application.current_core()
+    session = ruuxee.Application.current_session_manager()
+    this_person_id = session.authenticated_person_visible_id()
+    resp = core.get_notification_range(this_person_id, begin, end)
+    return make_json_response(resp)
+
+@page.route('/timeline/updates/<since_timestamp>', methods=['GET'])
+@signin_required
+def get_timeline_updates(since_timestamp):
+    """def get_timeline_updates(since_timestamp): -> Json
+
+    Get a range of latest updates of timeline later than given
+    timestamp.
+    """
+    core = ruuxee.Application.current_core()
+    session = ruuxee.Application.current_session_manager()
+    this_person_id = session.authenticated_person_visible_id()
+    resp = core.get_timeline_updates(since_timestamp)
+    return make_json_response(resp)
+
+@page.route('/notification/updates', methods=['GET'])
+@signin_required
+def get_notification_updates(since_timestamp):
+    """def get_notification_updates(since_timestamp): -> Json
+
+    Get a range of latest updates of notifications later than given
+    timestamp.
+    """
+    core = ruuxee.Application.current_core()
+    session = ruuxee.Application.current_session_manager()
+    this_person_id = session.authenticated_person_visible_id()
+    resp = core.get_notification_updates(since_timestamp)
+    return make_json_response(resp)
+
