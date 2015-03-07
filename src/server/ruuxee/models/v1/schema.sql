@@ -382,7 +382,17 @@ CREATE TABLE ruuxee_topic_v1 (
 --                get_post_brief
 --            }
 --       ]
-
+--
+-- 15. POST http://www.ruuxee.com/api/web/v1/add/post/on/topic/<topic_id>
+-- 16. POST http://www.ruuxee.com/api/web/v1/add/apost/on/topic/<topic_id>
+-- 17. POST http://www.ruuxee.com/api/web/v1/edit/post/<post_id>
+-- 18. POST http://www.ruuxee.com/api/web/v1/delete/post/<post_id>
+-- 19. POST http://www.ruuxee.com/api/web/v1/add/comment/on/post/<post_id>
+-- 20. POST http://www.ruuxee.com/api/web/v1/reply/comment/to/<comment_id>
+-- 21. POST http://www.ruuxee.com/api/web/v1/edit/comment/<comment_id>
+-- 22. POST http://www.ruuxee.com/api/web/v1/delete/comment/<comment_id>
+-- 23. POST http://www.ruuxee.com/api/web/v1/anonymous/post/<post_id>
+-- 24. POST http://www.ruuxee.com/api/web/v1/unanonymous/post/<post_id>
 --
 -- NOTE
 -- a. All add* operations must use PUT to retrieve visible_ids.
