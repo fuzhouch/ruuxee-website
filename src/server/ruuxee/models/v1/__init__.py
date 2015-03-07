@@ -616,16 +616,18 @@ class Core(utils.Logging):
     def __get_author_name(self, data):
         if data["is_anonymous"]:
             author_name = ANONYMOUS_PERSON_NAME
+            author_readable_id = None
         else:
             author_id = data["author_visible_id"]
+            fields = ["name", "readable_id"]
             found_person = self.__db.query_person("visible_id", \
-                                                  author_id, \
-                                                  ["name"])
+                                                  author_id, fields)
             # No need to check found_person. It must exist
             # because it is from internal database. The insert
             # logic should have ensured this.                  
             author_name = found_person[0]["name"]
-        return author_name
+            author_readable_id = found_person[0]["readable_id"]
+        return author_name, author_readable_id
 
     def __get_post(self, post_visible_id, full = False):
         fields = [ "status", "is_anonymous", "author_visible_id", \
@@ -634,44 +636,47 @@ class Core(utils.Logging):
             fields += [ "written_timestamp", "content_html" ]
         data = None
         result = self.__db.query_post("visible_id", post_visible_id, fields)
+        readable_id = None
         if result is not None:
-            single = result[0]
-            if single["status"] == STATUS_REVIEWING:
-                author_id = single["author_visible_id"]
-                author_name = self.__get_author_name(single)
+            found = result[0]
+            if found["status"] == STATUS_REVIEWING:
+                author_id = found["author_visible_id"]
+                author_name, readable_id = self.__get_author_name(found)
                 data = { "status": STATUS_REVIEWING, \
-                         "is_anonymous": single["is_anonymous"], \
+                         "is_anonymous": found["is_anonymous"], \
                          "author_name": author_name, \
                          "title": REVIEWING_TITLE, \
                          "brief_text": REVIEWING_TEXT }
-            elif single["status"] == STATUS_SUSPENDED:
-                author_id = single["author_visible_id"]
-                author_name = self.__get_author_name(single)
+            elif found["status"] == STATUS_SUSPENDED:
+                author_id = found["author_visible_id"]
+                author_name, readable_id = self.__get_author_name(found)
                 data = { "status": STATUS_SUSPENDED, \
-                         "is_anonymous": single["is_anonymous"], \
+                         "is_anonymous": found["is_anonymous"], \
                          "author_name": author_name, \
                          "title": SUSPENDED_TITLE, \
                          "brief_text": SUSPENDED_TEXT }
-            elif single["status"] == STATUS_DELETED:
+            elif found["status"] == STATUS_DELETED:
                 data = { "status": STATUS_DELETED }
                 return data
             else:
                 # Good, a posted article, now adjust other info
                 # based on information.
-                author_name = self.__get_author_name(single)
+                author_name, readable_id = self.__get_author_name(found)
                 data = { "status": STATUS_ACTIVATED, \
-                         "is_anonymous": single["is_anonymous"], \
+                         "is_anonymous": found["is_anonymous"], \
                          "author_name": author_name, \
-                         "title": single["title"], \
-                         "brief_text": single["brief_text"] }
+                         "title": found["title"], \
+                         "brief_text": found["brief_text"] }
             # Important: Make sure we don't return author visible ID for
             # anonymous users.
-            if not single["is_anonymous"]:
-                data["author_visible_id"] = single["author_visible_id"]
+            if not found["is_anonymous"]:
+                data["author_visible_id"] = found["author_visible_id"]
+                if readable_id is not None:
+                    data["author_readable_id"] = readable_id
             # Append real content for full mode.
             if full:
-                data["written_timestamp"] = single["written_timestamp"]
-                data["content_html"] = single["content_html"]
+                data["written_timestamp"] = found["written_timestamp"]
+                data["content_html"] = found["content_html"]
         return data
 
 class RequestWorker(utils.Logging):
