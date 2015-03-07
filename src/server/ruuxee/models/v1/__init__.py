@@ -599,23 +599,12 @@ class Core(utils.Logging):
         # It is an synchronized operation, we get it directly from
         # timeline cache.
         table_name = TableNameGenerator.person_timeline(current)
-        ret = self.__cache.get_list_range(table_name,\
+        found = self.__cache.get_list_range(table_name,\
                                           begin_offset, end_offset)
+        converted = [ HistoryItem.create_from_record(i) for i in found]
         response = self.__response(ruuxee.httplib.OK)
-        response["data"] = []
-        for each_record in ret:
-            data = {}
-            item = HistoryItem.create_from_record(each_record)
-            data["timestamp"] = item.stimestamp
-            data["action"] = item.action
-            data["action_name"] = ALL_TIMELINE_ACTION_NAMES[item.action]
-            data["from"] = self.get_person_brief(item.source_id)
-            get_timeline_info = self.__info_table[item.action]
-            data["to"] = get_timeline_info(item.target_id)
-            # item.addition is not exposed because it's used for
-            # internal reference.
-            response["data"].append(data)
-        return response
+        name_dict = ALL_TIMELINE_ACTION_NAMES
+        return self.__fill_item_to_response(response, converted, name_dict)
 
     @utils.Logging.enter_leave
     def get_notification_range(self, current_person_id, begin, end):
@@ -643,16 +632,96 @@ class Core(utils.Logging):
                       (current, begin, end))
 
         table_name = TableNameGenerator.person_notification(current)
-        ret = self.__cache.get_list_range(table_name,\
+        found = self.__cache.get_list_range(table_name,\
                                           begin_offset, end_offset)
         response = self.__response(ruuxee.httplib.OK)
+        converted = [ HistoryItem.create_from_record(i) for i in found]
+        response = self.__response(ruuxee.httplib.OK)
+        name_dict = ALL_NOTIFICATION_ACTION_NAMES
+        return self.__fill_item_to_response(response, converted, name_dict)
+
+    def get_timeline_update(self, current_person_id, since):
+        """def get_timeline_update(self, current_person_id, since)
+
+        Return items in timeline that newer than given timestamp."""
+        return self.__get_updates(current_person_id, since,
+                                  TableNameGenerator.person_timeline,
+                                  ALL_TIMELINE_ACTION_NAMES,
+                                  "timeline_update")
+
+    def get_notification_update(self, current_person_id, since):
+        """def get_notification_update(self, current_person_id, since)
+
+        Return items in notification that newer than given timestamp."""
+        return self.__get_updates(current_person_id, since,
+                                  TableNameGenerator.person_notification,
+                                  ALL_NOTIFICATION_ACTION_NAMES,
+                                  "notification_update")
+
+    # --------------------------------------------------------------
+    # Internal functions below
+    # --------------------------------------------------------------
+
+    def __get_updates(self, current_person_id, since_timestamp,
+                      table_gen, name_dict, operation):
+        current = str(current_person_id)
+
+        status = self.is_actionable_person(current)
+        if status != ruuxee.httplib.OK:
+            return self.__response(status)
+
+        try:
+            since_ts = int(since_timestamp)
+        except Exception:
+            return self.__response(ruuxee.httplib.BAD_REQUEST)
+
+        now = utils.stimestamp()
+        if since_ts > now:
+            # We can't return an update from the future.
+            return self.__response(ruuxee.httplib.BAD_REQUEST)
+
+        self.log_info("Effective: %s %s %s" % \
+                      (operation, current, since_timestamp))
+
+        table_name = table_gen(current)
+        begin = 0
+        end = ruuxee.Application.current_single_query_items()
+        found = []
+        length = self.__cache.get_list_length(table_name)
+        while True:
+            if len(found) >= length:
+                break # All contents are retrieved.
+            result = self.__cache.get_list_range(table_name, begin, end)
+            last_item = HistoryItem.create_from_record(result[-1])
+            oldest_ts = last_item.stimestamp
+            if oldest_ts > since_ts:
+                # Still more items later than since_ts in queue, get
+                # them out.
+                found += result
+                begin = end
+                end *= 2
+                continue
+            else:
+                # Reached an item that is older than expected since_ts.
+                # Stop.
+                found += result
+                break
+        converted = [ HistoryItem.create_from_record(i) for i in found]
+        # Pick only items newer than given since_ts to list
+        trimmed = filter(lambda x: x.stimestamp >= since_ts, converted)
+        response = self.__response(ruuxee.httplib.OK)
+        return self.__fill_item_to_response(response, trimmed, name_dict)
+
+    def __fill_item_to_response(self, response, items, name_dict):
+        """Unified formatter to fill History item to response. Used by
+        timeline and notification updates.
+        """
         response["data"] = []
-        for each_record in ret:
+        for item in items:
             data = {}
-            item = HistoryItem.create_from_record(each_record)
             data["timestamp"] = item.stimestamp
             data["action"] = item.action
-            data["action_name"] = ALL_NOTIFICATION_ACTION_NAMES[item.action]
+            data["action_name"] = name_dict[item.action]
             data["from"] = self.get_person_brief(item.source_id)
             get_timeline_info = self.__info_table[item.action]
             data["to"] = get_timeline_info(item.target_id)
@@ -660,7 +729,6 @@ class Core(utils.Logging):
             # internal reference.
             response["data"].append(data)
         return response
-
 
     def __is_post_written_by(self, post_id, person_id):
         fields = ["author_visible_id"]
@@ -699,10 +767,6 @@ class Core(utils.Logging):
         item = HistoryItem(ts, action, source, target, addition)
         self.__queue.push_queue(item.encode())
         return self.__response()
-
-    # --------------------------------------------------------------
-    # Internal functions below
-    # --------------------------------------------------------------
 
     def __get_author_name(self, data):
         if data["is_anonymous"]:
