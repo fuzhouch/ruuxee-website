@@ -156,7 +156,7 @@ class Database(object):
             to = Topic()
             to.visible_id = self.__get_random_visible_id_str()
             to.title = each_title
-            to.description = random.choice(["如题", ""])
+            to.description = random.choice([u"如题", u"No much to talk"])
             self.__topics.append(to)
         # all done for fake database. Now create cache for persons.
         for each_person in self.__persons:

@@ -78,6 +78,16 @@ def get_person_brief(person_id):
     data = core.get_person_brief(person_id)
     return make_json_response(data)
 
+@page.route('/topic-brief/<topic_visible_id>')
+@signin_required
+def get_topic_brief(topic_visible_id):
+    """def get_topic_brief(topic_visible_id): -> Json
+
+    Return a brief of specific topic."""
+    core = ruuxee.Application.current_core()
+    data = core.get_topic_brief(topic_visible_id)
+    return make_json_response(data)
+
 @page.route('/post-brief/<post_visible_id>')
 @signin_required
 def get_post_brief(post_visible_id):
